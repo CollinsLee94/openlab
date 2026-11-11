@@ -208,6 +208,52 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); outline
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
 
+
+/* 보험설계 */
+.design { display: grid; gap: 10px; margin-top: 10px; }
+.d-lbl { display: block; font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+.d-main p { margin: 0; }
+.limits { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+.d-riders { display: grid; gap: 4px; }
+.rider { display: grid; grid-template-columns: 18px 40px minmax(0, 1fr); gap: 2px 8px; align-items: start; padding: 6px 8px; border-radius: 6px; background: var(--surface); cursor: pointer; font-size: 14px; }
+.rider input { margin-top: 3px; accent-color: var(--accent); }
+.rider .rw { grid-column: 3; font-size: 12px; color: var(--muted); }
+.rk { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 1px 4px; text-align: center; background: var(--track); color: var(--muted); }
+.rider.required .rk, .rk.required { background: var(--crit-soft); color: var(--crit); }
+.rider.recommended .rk, .rk.recommended { background: var(--accent-soft); color: var(--accent); }
+.rlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.rlist li { display: flex; gap: 8px; align-items: center; }
+.dz { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; }
+.small { font-size: 13px; }
+/* 고객 카드 */
+.seg-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg-group .seg { background: var(--surface); font: inherit; font-size: 14px; }
+.seg-group .seg.on { background: var(--accent); color: var(--accent-ink); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.ccard { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.ccard.b-crit { border-top-color: var(--crit); } .ccard.b-warn { border-top-color: var(--warn); }
+.ccard header { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.ccard header p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.cmeta { display: flex; gap: 6px; flex-wrap: wrap; }
+.dday { font-weight: 700; font-size: 15px; padding: 3px 10px; border-radius: 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dday.crit { background: var(--crit-soft); color: var(--crit); } .dday.warn { background: var(--warn-soft); color: var(--warn); } .dday.mute { background: var(--track); color: var(--muted); }
+.dday.none { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--track); }
+.dday.sm { font-size: 12px; padding: 1px 7px; }
+.exp { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.exp li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
+.exp li:last-child { border-bottom: 0; padding-bottom: 0; }
+.exp .en { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp .ei { color: var(--muted); } .ours { color: var(--accent); }
+.ccard footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+.ccard footer span { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.confirm { font-size: 13px; color: var(--crit); }
+.btn.danger { background: var(--crit); color: #fff; }
+.danger-zone { border-top: 1px solid var(--line); padding-top: 12px; }
+.danger-zone p { margin: 0 0 8px; font-size: 14px; color: var(--crit); }
+.archived summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+.archived ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
+.archived li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+
 @media (max-width: 960px) {
   .split { grid-template-columns: 1fr; } .preview { position: static; order: -1; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .charts { grid-template-columns: 1fr; }

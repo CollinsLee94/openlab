@@ -29,11 +29,10 @@
   let ACCOUNTS = [];
   let ACC = {};
   const CFG = window.HEARIM_CONFIG || {};
-  const FACILITY_OPTS = ['일반음식점(1층, 100㎡ 이상)', '물류창고', '직영 판매장'];
 
   const state = {
     me: null, consults: [], dbMode: 'loading', sb: null, canWrite: true, authReady: false,
-    draft: null, step: 1, trackFilter: { q: '', stage: '', ksic: '', product: '' },
+    draft: null, step: 1, trackFilter: { q: '', stage: '', ind: '', product: '' }, cardFilter: { q: '', mode: 'all' }, confirmArchive: null,
     dash: { period: 'all', counselor: '' }, drawer: null
   };
 
@@ -106,7 +105,7 @@
   function visibleConsults() {
     return state.me.role === 'manager' ? state.consults : state.consults.filter(c => c.counselorId === state.me.id);
   }
-  function route() { const h = (location.hash || '').slice(1); return ['consult', 'tracking', 'dashboard', 'admin'].includes(h) ? h : 'dashboard'; }
+  function route() { const h = (location.hash || '').slice(1); return ['consult', 'customers', 'tracking', 'dashboard', 'admin'].includes(h) ? h : 'customers'; }
   function badge(result) {
     const map = { '의무대상': 'crit', '확인필요': 'warn', '비대상': 'mute', '권장': 'info', '적격': 'good', '부적격': 'crit' };
     return `<span class="pill ${map[result] || 'mute'}">${esc(result)}</span>`;
@@ -126,11 +125,12 @@
     app.innerHTML = `
       ${topbar(r)}
       ${dbBanner()}
-      <main class="main">${r === 'consult' ? consultView() : r === 'tracking' ? trackingView() : r === 'admin' ? adminView() : dashboardView()}</main>
+      <main class="main">${r === 'consult' ? consultView() : r === 'customers' ? customersView() : r === 'tracking' ? trackingView() : r === 'admin' ? adminView() : dashboardView()}</main>
       ${state.drawer ? drawerView() : ''}`;
     bindCommon();
     if (r === 'consult') bindConsult();
     if (r === 'tracking') bindTracking();
+    if (r === 'customers') bindCustomers();
     if (r === 'dashboard') bindDashboard();
     if (state.drawer) bindDrawer();
   }
@@ -144,10 +144,10 @@
   }
 
   function topbar(r) {
-    const tabs = [['dashboard', '실적 대시보드'], ['consult', '새 상담'], ['tracking', '가입 트래킹']];
+    const tabs = [['customers', '고객 카드'], ['consult', '새 상담'], ['tracking', '가입 트래킹'], ['dashboard', '실적 대시보드']];
     if (state.me.role === 'manager') tabs.push(['admin', '규칙·상품']);
     return `<header class="topbar">
-      <div class="brand"><span class="mark" aria-hidden="true">헤</span><div><b>소상공인 보험 헤아림</b><small>상담사 콘솔 · 제조업 소기업</small></div></div>
+      <div class="brand"><span class="mark" aria-hidden="true">헤</span><div><b>소상공인 보험 헤아림</b><small>상담사 콘솔 · 소상공인</small></div></div>
       <nav class="tabs" aria-label="메뉴">${tabs.map(([k, l]) => `<a href="#${k}" class="tab ${r === k ? 'on' : ''}">${l}</a>`).join('')}</nav>
       <div class="who"><span>${esc(state.me.name)} <small>${esc(state.me.branch)}</small></span><button class="btn ghost sm" id="logout">로그아웃</button></div>
     </header>`;
@@ -160,7 +160,7 @@
   }
   function loginView() {
     return `<div class="login-wrap"><form class="login card" id="loginForm">
-      <div class="brand lg"><span class="mark" aria-hidden="true">헤</span><div><b>소상공인 보험 헤아림</b><small>제조업 소기업 의무보험 보장분석 · 상담사 콘솔</small></div></div>
+      <div class="brand lg"><span class="mark" aria-hidden="true">헤</span><div><b>소상공인 보험 헤아림</b><small>소상공인 의무보험 보장분석 · 상담사 콘솔</small></div></div>
       <label for="email">이메일</label>
       <input id="email" type="email" autocomplete="username" placeholder="name@example.com">
       <label for="pw">비밀번호</label>
@@ -176,7 +176,7 @@
       const btn = $('#loginBtn'); btn.disabled = true; btn.textContent = '로그인 중…'; state.loginError = '';
       const { error } = await state.sb.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#pw').value });
       if (error) { btn.disabled = false; btn.textContent = '로그인'; $('#loginErr').textContent = '이메일 또는 비밀번호가 맞지 않아요.'; return; }
-      if (!location.hash) location.hash = '#dashboard';
+      if (!location.hash) location.hash = '#customers';
     });
   }
   function bindCommon() {
@@ -184,39 +184,45 @@
   }
 
   /* ---------- 새 상담 ---------- */
+  const FACILITY_OPTS = ['일반음식점(1층, 100㎡ 이상)', '물류창고', '직영 판매장'];
   function newDraft() {
     return {
       customer: { name: '', phone: '', email: '' },
-      biz: { bizName: '', bizNo: '', corpType: '법인', sido: '', sigungu: '', addressDetail: '', address: '', ksic: '', isMainBusiness: true, mainProducts: '', smeType: '', employees: null,
-        isBuildingOwner: null, buildingArea: null, buildingFloors: null, factoryArea: null, industrialComplex: false,
+      biz: { bizName: '', industry: '', sportsType: '', ksic: '', employees: null, smeType: '',
+        floorType: '', bizArea: null, capacity: null,
+        isBuildingOwner: null, buildingArea: null, buildingFloors: null,
         hasElevator: false, elevatorCount: null, elevatorManager: null,
         lpg: false, lpgKg: null, cityGas: false, cityGasSpecific: false, hpGasStorage: false, spHpGasUse: false,
-        hazardousChem: false, emissionFacility: false, records: null, vehicles: 0, otherFacilities: [], supplyNH: false, exports: false },
+        hazardousChem: false, emissionFacility: false, kidsPlay: false, records: null, vehicles: 0, otherFacilities: [], supplyNH: false,
+        bizNo: '', corpType: '개인', sido: '', sigungu: '', addressDetail: '', address: '', mainProducts: '', industrialComplex: false, exports: false },
       answers: {}, memo: ''
     };
   }
   function consultView() {
     if (!state.draft) state.draft = newDraft();
     const s = state.step;
-    const steps = ['고객 정보', '사업장 정보', '보장분석 결과'];
+    const steps = ['고객 정보', '사업장 정보', '보장분석·보험설계'];
     return `<div class="page-head"><h1>새 상담</h1><p>기준일 ${E.BASIS_DATE} · 사회보험(국민연금·건강·고용·산재)은 분석에서 제외</p></div>
       <ol class="stepper">${steps.map((t, i) => `<li class="${i + 1 === s ? 'on' : i + 1 < s ? 'done' : ''}"><span>${i + 1}</span>${t}</li>`).join('')}</ol>
       ${s === 1 ? step1() : s === 2 ? step2() : step3()}`;
   }
   const v = x => x === null || x === undefined ? '' : x;
-  function inp(path, label, type = 'text', attrs = '') {
+  const fid = path => 'f_' + path.replace(/\./g, '_');
+  function inp(path, label, type = 'text', attrs = '', cls = '') {
     const val = getPath(state.draft, path);
-    const id = 'f_' + path.replace(/\./g, '_');
-    return `<div class="field"><label for="${id}">${label}</label><input id="${id}" data-path="${path}" type="${type}" value="${esc(v(val))}" ${attrs}></div>`;
+    return `<div class="field${cls}"><label for="${fid(path)}">${label}</label><input id="${fid(path)}" data-path="${path}" type="${type}" value="${esc(v(val))}" ${attrs}></div>`;
   }
   function chk(path, label) {
-    const id = 'f_' + path.replace(/\./g, '_');
-    return `<label class="check" for="${id}"><input id="${id}" type="checkbox" data-path="${path}" ${getPath(state.draft, path) ? 'checked' : ''}> ${label}</label>`;
+    return `<label class="check" for="${fid(path)}"><input id="${fid(path)}" type="checkbox" data-path="${path}" ${getPath(state.draft, path) ? 'checked' : ''}> ${label}</label>`;
   }
-  function tri(path, label, yes = '예', no = '아니오') {
-    const val = getPath(state.draft, path); const id = 'f_' + path.replace(/\./g, '_');
-    return `<div class="field"><label for="${id}">${label}</label><select id="${id}" data-path="${path}" data-type="tri">
+  function tri(path, label, yes = '예', no = '아니오', cls = '') {
+    const val = getPath(state.draft, path);
+    return `<div class="field${cls}"><label for="${fid(path)}">${label}</label><select id="${fid(path)}" data-path="${path}" data-type="tri">
       <option value="" ${val === null ? 'selected' : ''}>선택</option><option value="1" ${val === true ? 'selected' : ''}>${yes}</option><option value="0" ${val === false ? 'selected' : ''}>${no}</option></select></div>`;
+  }
+  function sel(path, label, opts, cls = '', placeholder = '선택') {
+    const val = getPath(state.draft, path);
+    return `<div class="field${cls}"><label for="${fid(path)}">${label}</label><select id="${fid(path)}" data-path="${path}"><option value="">${placeholder}</option>${opts.map(([k, t]) => `<option value="${esc(k)}" ${val === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
   }
   function getPath(o, p) { return p.split('.').reduce((a, k) => a == null ? a : a[k], o); }
   function setPath(o, p, val) { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = val; }
@@ -229,14 +235,21 @@
       <div class="actions"><span></span><button class="btn primary" id="next1">다음: 사업장 정보</button></div>
     </section>`;
   }
+
   const REQ = ' <b class="req" aria-label="필수">*</b>';
   const USE = t => `<span class="use">판정: ${t}</span>`;
-  const REQUIRED_FIELDS = [
-    ['biz.bizName', '상호'], ['biz.ksic', '주된 업종'], ['biz.isMainBusiness', '제조업 주된 사업 여부'], ['biz.smeType', '중소기업확인서 구분'],
-    ['biz.isBuildingOwner', '건물 소유'], ['biz.buildingArea', '건물 연면적']
-  ];
+  const needsFloor = b => ['FOOD', 'CAFE'].includes(b.industry);
+  const needsCapacity = b => ['ACADEMY', 'BATH'].includes(b.industry);
   function missingRequired(b) {
-    const miss = REQUIRED_FIELDS.filter(([p]) => { const v = getPath(state.draft, p); return v === null || v === undefined || v === ''; });
+    const miss = [];
+    const empty = p => { const x = getPath(state.draft, p); return x === null || x === undefined || x === ''; };
+    [['biz.bizName', '상호'], ['biz.industry', '업종']].forEach(f => empty(f[0]) && miss.push(f));
+    if (b.smeType !== '소상공인' && empty('biz.employees')) miss.push(['biz.employees', '상시근로자 수']);
+    if (b.industry === 'SPORTS' && empty('biz.sportsType')) miss.push(['biz.sportsType', '체육시설 종류']);
+    if (needsFloor(b)) { if (empty('biz.floorType')) miss.push(['biz.floorType', '영업장 층']); if (empty('biz.bizArea')) miss.push(['biz.bizArea', '영업장 면적']); }
+    if (empty('biz.isBuildingOwner')) miss.push(['biz.isBuildingOwner', '건물 소유']);
+    if (b.isBuildingOwner === true && empty('biz.buildingArea')) miss.push(['biz.buildingArea', '건물 연면적']);
+    if (b.industry === 'WAREHOUSE' && empty('biz.buildingArea')) miss.push(['biz.buildingArea', '건물 연면적']);
     if (b.hasElevator && (b.elevatorManager === null || b.elevatorManager === undefined)) miss.push(['biz.elevatorManager', '승강기 관리주체 여부']);
     return miss;
   }
@@ -244,56 +257,47 @@
     const b = state.draft.biz;
     const miss = new Set((state.showMissing ? missingRequired(b) : []).map(([p]) => p));
     const bad = p => miss.has(p) ? ' invalid' : '';
-    const lab = (p, t) => `${t}${REQ}`;
+    const indOpts = E.INDUSTRIES.map(i => [i.code, i.name + (i.hint ? ` (${i.hint})` : '')]);
     return `<div class="split">
       <section class="card form">
         <div class="form-intro"><h2 class="first">보장분석에 필요한 정보</h2><p class="muted"><b class="req">*</b> 표시는 필수예요. 체크 항목은 해당할 때만 체크하세요.</p></div>
 
-        <h3 class="grp">고객 식별·대상 확인 ${USE('제조업 소기업 적격성')}</h3>
-        <div class="grid2">
-          <div class="field${bad('biz.bizName')}">${inp('biz.bizName', lab('biz.bizName', '상호'), 'text', 'placeholder="가입 트래킹 목록에 표시돼요"').replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>
-          <div class="field${bad('biz.ksic')}"><label for="f_biz_ksic">주된 업종 (KSIC 중분류)${REQ}</label><select id="f_biz_ksic" data-path="biz.ksic"><option value="">선택</option>${E.KSIC.map(([c, n]) => `<option value="${c}" ${b.ksic === c ? 'selected' : ''}>${c} ${esc(n)}</option>`).join('')}<option value="X" ${b.ksic === 'X' ? 'selected' : ''}>제조업 외 업종</option></select></div>
-        </div>
-        <div class="grid2">
-          <div class="field${bad('biz.isMainBusiness')}">${tri('biz.isMainBusiness', '제조업이 주된 사업인가요?' + REQ + ' <i class="tip" data-tip="여러 업종을 함께 하면 평균매출액 비중이 가장 큰 업종이 주된 업종이에요.">?</i>').replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>
-          <div class="field${bad('biz.smeType')}"><label for="f_biz_smeType">중소기업확인서 구분${REQ}</label><select id="f_biz_smeType" data-path="biz.smeType">${['', '소기업', '소상공인', '중기업', '없음/모름'].map(o => `<option value="${o}" ${b.smeType === o ? 'selected' : ''}>${o || '선택'}</option>`).join('')}</select></div>
-        </div>
+        <h3 class="grp">업체·업종 ${USE('소상공인 여부, 업종별 의무보험')}</h3>
+        <div class="grid2">${inp('biz.bizName', '상호' + REQ, 'text', 'placeholder="가입 트래킹·고객 카드에 표시돼요"', bad('biz.bizName'))}${sel('biz.industry', '업종' + REQ, indOpts, bad('biz.industry'))}</div>
+        ${b.industry === 'SPORTS' ? `<div class="grid2">${sel('biz.sportsType', '체육시설 종류' + REQ, E.SPORTS_TYPES.map(([c, n]) => [c, n]), bad('biz.sportsType'))}</div>` : ''}
+        ${b.industry === 'MFG' ? `<div class="grid2">${sel('biz.ksic', '제조 품목 <span class="opt">(선택 · 특약 추천에 사용)</span>', E.KSIC.map(([c, n]) => [c, `${n} (${c})`]))}</div>` : ''}
+        <div class="grid2">${inp('biz.employees', '상시근로자 수 (대표 제외)' + (b.smeType === '소상공인' ? '' : REQ), 'number', 'min="0" placeholder="0"', bad('biz.employees'))}${sel('biz.smeType', '소상공인 확인서 <span class="opt">(선택)</span>', [['소상공인', '소상공인 확인서 있음'], ['없음/모름', '없음/모름'], ['중기업 이상', '중기업 이상']])}</div>
 
-        <h3 class="grp">건물 <i class="tip" data-tip="건축물대장에서 소유자·연면적을 확인할 수 있어요.">?</i> ${USE('특수건물 화재보험')}</h3>
-        <div class="grid2">
-          <div class="field${bad('biz.isBuildingOwner')}">${tri('biz.isBuildingOwner', '건물 소유' + REQ, '자가 소유', '임차').replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>
-          <div class="field${bad('biz.buildingArea')}">${inp('biz.buildingArea', '건물 연면적 (㎡)' + REQ, 'number', 'min="0"').replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>
-        </div>
+        <h3 class="grp">영업장 ${USE('다중이용업소 화재배상·재난배상')}</h3>
+        <div class="grid3">${sel('biz.floorType', '영업장 층' + (needsFloor(b) ? REQ : ''), E.FLOOR_OPTS, bad('biz.floorType'))}${inp('biz.bizArea', '영업장 면적 (㎡)' + (needsFloor(b) ? REQ : ''), 'number', 'min="0"', bad('biz.bizArea'))}${needsCapacity(b) ? inp('biz.capacity', '수용인원 (명)', 'number', 'min="0"') : ''}</div>
+
+        <h3 class="grp">건물 <i class="tip" data-tip="건축물대장에서 소유자·연면적·층수를 확인할 수 있어요.">?</i> ${USE('특수건물 화재보험')}</h3>
+        <div class="grid3">${tri('biz.isBuildingOwner', '건물 소유' + REQ, '자가 소유', '임차', bad('biz.isBuildingOwner'))}${b.isBuildingOwner === true || b.industry === 'WAREHOUSE' ? inp('biz.buildingArea', '건물 연면적 (㎡)' + REQ, 'number', 'min="0"', bad('biz.buildingArea')) + inp('biz.buildingFloors', '건물 층수', 'number', 'min="1"') : ''}</div>
 
         <h3 class="grp">승강기 <i class="tip" data-tip="승강기 안전인증·정기검사 필증에서 관리주체를 확인하세요.">?</i> ${USE('승강기사고배상책임')}</h3>
-        <div class="row-checks">${chk('biz.hasElevator', '승강기 있음 (화물용 포함)')}</div>
-        ${b.hasElevator ? `<div class="grid2"><div class="field${bad('biz.elevatorManager')}">${tri('biz.elevatorManager', '고객이 관리주체인가요?' + REQ).replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>${inp('biz.elevatorCount', '대수', 'number', 'min="1"')}</div>` : ''}
+        <div class="row-checks">${chk('biz.hasElevator', '승강기 있음 (화물용·에스컬레이터 포함)')}</div>
+        ${b.hasElevator ? `<div class="grid2">${tri('biz.elevatorManager', '고객이 관리주체인가요?' + REQ, '예', '아니오', bad('biz.elevatorManager'))}${inp('biz.elevatorCount', '대수', 'number', 'min="1"')}</div>` : ''}
 
         <h3 class="grp">가스 <i class="tip" data-tip="가스 사용시설 완성검사증명서·사용신고서로 확인하세요.">?</i> ${USE('가스사고배상책임')}</h3>
         <div class="row-checks">${chk('biz.lpg', 'LPG 사용')}${chk('biz.cityGas', '도시가스 사용')}${chk('biz.hpGasStorage', '고압가스 저장 허가')}${chk('biz.spHpGasUse', '특정고압가스 사용신고')}</div>
         ${b.lpg || b.cityGas ? `<div class="grid2">${b.lpg ? inp('biz.lpgKg', 'LPG 저장능력 (kg)', 'number', 'min="0"') : ''}${b.cityGas ? `<div class="field"><span class="lbl">도시가스</span>${chk('biz.cityGasSpecific', '특정가스사용시설 해당')}</div>` : ''}</div>` : ''}
 
-        <h3 class="grp">환경 ${USE('환경책임보험')}</h3>
-        <div class="row-checks">${chk('biz.hazardousChem', '유해화학물질 취급')}${chk('biz.emissionFacility', '대기·수질 배출시설')}</div>
-
-        <h3 class="grp">기타 시설·자산 ${USE('재난배상·개인정보·자동차 책임보험')}</h3>
-        <fieldset class="field"><legend>사업장 내 별도 시설</legend><div class="row-checks">${FACILITY_OPTS.map((o, i) => `<label class="check" for="fac${i}"><input id="fac${i}" type="checkbox" data-fac="${esc(o)}" ${b.otherFacilities.includes(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}</div></fieldset>
-        <div class="grid2">${inp('biz.records', '보유 고객 개인정보 (건)', 'number', 'min="0" placeholder="모르면 비워 두세요"')}${inp('biz.vehicles', '업무용 차량 (대)', 'number', 'min="0"')}</div>
-
-        <h3 class="grp">권장 보험 ${USE('생산물배상책임 특약')}</h3>
-        <div class="row-checks">${chk('biz.supplyNH', '농협 계통 납품')}</div>
+        <h3 class="grp">기타 시설·자산 ${USE('놀이시설·환경·개인정보·자동차·재난배상')}</h3>
+        <div class="row-checks">${b.industry !== 'KIDS' ? chk('biz.kidsPlay', '어린이 놀이공간·놀이기구 운영') : ''}${chk('biz.hazardousChem', '유해화학물질 취급')}${chk('biz.emissionFacility', '대기·수질 배출시설')}</div>
+        ${b.industry === 'MFG' ? `<fieldset class="field"><legend>사업장 내 별도 시설</legend><div class="row-checks">${FACILITY_OPTS.map((o, i) => `<label class="check" for="fac${i}"><input id="fac${i}" type="checkbox" data-fac="${esc(o)}" ${b.otherFacilities.includes(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}</div></fieldset>` : ''}
+        <div class="grid2">${inp('biz.records', '보유 고객 개인정보 (건)', 'number', 'min="0" placeholder="모르면 비워 두세요"')}${inp('biz.vehicles', '업무용 차량·오토바이 (대)', 'number', 'min="0"')}</div>
+        ${['MFG', 'RETAIL', 'FOOD', 'CAFE'].includes(b.industry) ? `<div class="row-checks">${chk('biz.supplyNH', '농협 계통 납품')}</div>` : ''}
 
         <details class="optional" ${state.optOpen ? 'open' : ''} id="optDetails">
           <summary>추가 정보 <span class="opt">(선택 · 보장분석 결과에는 영향 없음)</span></summary>
           <div class="opt-body">
-            <div class="grid2">${inp('biz.bizNo', '사업자등록번호', 'text', 'placeholder="000-00-00000"')}
-              <div class="field"><label for="f_biz_corpType">사업자 구분</label><select id="f_biz_corpType" data-path="biz.corpType">${['법인', '개인'].map(o => `<option ${b.corpType === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div></div>
+            <div class="grid2">${inp('biz.bizNo', '사업자등록번호', 'text', 'placeholder="000-00-00000"')}${sel('biz.corpType', '사업자 구분', [['개인', '개인'], ['법인', '법인']])}</div>
             <div class="grid3">
               <div class="field"><label for="f_biz_sido">사업장 시·도</label><select id="f_biz_sido" data-path="biz.sido"><option value="">선택</option>${Object.keys(window.REGIONS).map(s => `<option ${b.sido === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
               <div class="field"><label for="f_biz_sigungu">시·군·구</label><select id="f_biz_sigungu" data-path="biz.sigungu" ${b.sido ? '' : 'disabled'}><option value="">${b.sido ? '선택' : '시·도를 먼저 선택'}</option>${(window.REGIONS[b.sido] || []).map(g => `<option ${b.sigungu === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
               ${inp('biz.addressDetail', '상세 주소', 'text', 'placeholder="읍·면·동, 도로명, 번지"')}
             </div>
-            <div class="grid3">${inp('biz.mainProducts', '주요 생산품', 'text', 'placeholder="예: 김치, 알루미늄 브래킷"')}${inp('biz.employees', '상시근로자 수', 'number', 'min="0"')}${inp('biz.buildingFloors', '건물 층수', 'number', 'min="1"')}</div>
+            <div class="grid2">${inp('biz.mainProducts', '주요 품목·메뉴', 'text', 'placeholder="예: 국밥, 수제 쿠키, 금속 브래킷"')}</div>
             <div class="row-checks">${chk('biz.industrialComplex', '산업단지 입주')}${chk('biz.exports', '수출')}</div>
           </div>
         </details>
@@ -307,9 +311,9 @@
     const b = state.draft.biz; const el = E.eligibility(b); const rs = E.analyze(b);
     const req = rs.filter(r => r.kind === 'mandatory' && r.result !== '비대상');
     return `<h3>실시간 미리보기</h3>
-      <div class="elig">${badge(el.status)}<ul>${el.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+      <div class="elig">소상공인 ${badge(el.status)}<ul>${el.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
       <h4>의무보험 해당 ${req.length}건</h4>
-      ${req.length ? `<ul class="mini">${req.map(r => `<li>${badge(r.result)} ${esc(r.name)}</li>`).join('')}</ul>` : '<p class="muted">아직 해당하는 의무보험이 없어요. 시설 정보를 입력해 보세요.</p>'}`;
+      ${req.length ? `<ul class="mini">${req.map(r => `<li>${badge(r.result)} ${esc(r.name)}</li>`).join('')}</ul>` : '<p class="muted">아직 해당하는 의무보험이 없어요. 업종과 시설 정보를 입력해 보세요.</p>'}`;
   }
 
   function step3() {
@@ -318,20 +322,25 @@
     const none = rs.filter(r => r.kind === 'mandatory' && r.result === '비대상');
     const rec = rs.filter(r => r.kind === 'recommended' && r.result === '권장');
     return `<section class="card summary-line">
-        <div><b>${esc(b.bizName || '(상호 미입력)')}</b> · ${esc(b.ksic ? b.ksic + ' ' + (E.KSIC_NAME[b.ksic] || '제조업 외') : '업종 미선택')} · ${esc(d.customer.name)}</div>
-        <div>대상 적격성 ${badge(el.status)} <span class="muted">${esc(el.reasons.join(' · '))}</span></div>
+        <div><b>${esc(b.bizName || '(상호 미입력)')}</b> · ${esc(E.IND[b.industry]?.name || '업종 미선택')} · ${esc(d.customer.name)}</div>
+        <div>소상공인 ${badge(el.status)} <span class="muted">${esc(el.reasons.join(' · '))}</span></div>
       </section>
       <h2 class="sec">① 법정 의무보험 <span class="count">${mand.length}</span></h2>
       ${mand.length ? mand.map(mandCard).join('') : '<div class="card empty">해당하는 의무보험이 없어요.</div>'}
       ${none.length ? `<details class="card none"><summary>비대상 ${none.length}건 보기</summary><ul>${none.map(r => `<li><b>${esc(r.name)}</b> — ${esc(r.reason)}</li>`).join('')}</ul></details>` : ''}
       <h2 class="sec">② 권장 보험 <span class="sub">의무 아님</span></h2>
-      ${rec.map(recCard).join('')}
+      ${rec.length ? rec.map(recCard).join('') : '<div class="card muted">추가로 권장할 보험이 없어요.</div>'}
       <h2 class="sec">③ 분석 제외</h2>
       <div class="card muted">사회보험(국민연금·건강보험·고용보험·산재보험)은 이 분석에서 제외됩니다.</div>
       <div class="field memo"><label for="memo">상담 메모</label><textarea id="memo" rows="3">${esc(d.memo)}</textarea></div>
-      <p class="disclaimer">이 결과는 ${E.BASIS_DATE} 법령 기준 초안(미검증 규칙 포함)이며, 최종 가입 의무 여부는 관할 기관 확인이 필요합니다.</p>
+      <p class="disclaimer">이 결과는 ${E.BASIS_DATE} 법령 기준 초안(미검증 규칙 포함)이며, 최종 가입 의무 여부는 관할 기관 확인이 필요합니다. 보험료는 영업요율서 기준으로 별도 산출하세요.</p>
       <p class="err" id="stepErr" role="alert"></p>
       <div class="actions"><button class="btn ghost" id="prev3">이전</button><button class="btn primary" id="saveConsult" ${state.canWrite ? '' : 'disabled'}>상담 저장</button></div>`;
+  }
+  function getDesign(code, productId) {
+    const a = state.draft.answers[code] || (state.draft.answers[code] = {});
+    if (!a.design || a.design.productId !== productId) a.design = E.design(productId, state.draft.biz);
+    return a.design;
   }
   function mandCard(r) {
     const rule = E.RULE[r.code]; const a = state.draft.answers[r.code] || {};
@@ -346,28 +355,34 @@
       </div>
       ${a.status === '가입' ? `<div class="grid2">
         <div class="field"><label for="ins_${r.code}">보험사</label><input id="ins_${r.code}" data-ansf="${r.code}.insurer" value="${esc(a.insurer || '')}" placeholder="예: NH농협손해보험"></div>
-        <div class="field"><label for="exp_${r.code}">만기일</label><input id="exp_${r.code}" type="date" data-ansf="${r.code}.expiry" value="${esc(a.expiry || '')}"></div></div>` : ''}
-      ${a.status === '미가입' ? (prod.length ? prod.map(p => productBox(p, true)).join('') : `<div class="noprod"><span class="pill outline">당사 미취급</span> 관련 기관·타 채널을 안내해 주세요. 트래킹 대상에서 제외됩니다.</div>`) : ''}
+        <div class="field"><label for="exp_${r.code}">만기일 <span class="opt">(고객 카드 D-day에 사용)</span></label><input id="exp_${r.code}" type="date" data-ansf="${r.code}.expiry" value="${esc(a.expiry || '')}"></div></div>` : ''}
+      ${a.status === '미가입' ? (prod.length ? prod.map(p => designBox(r.code, p)).join('') : `<div class="noprod"><span class="pill outline">당사 미취급</span> 관련 기관·타 채널을 안내해 주세요. 트래킹 대상에서 제외됩니다.</div>`) : ''}
     </article>`;
   }
-  function productBox(p, auto) {
-    return `<div class="prod"><div class="prod-head"><span class="pill accent">당사 추천</span><b>${esc(p.name)}</b><small>${esc(p.line)}</small></div>
-      ${p.riders.special.length ? `<p><b>필수 특약</b> ${p.riders.special.map(esc).join(' · ')}</p>` : ''}
-      ${p.riders.optional.length ? `<p class="muted"><b>선택 특약</b> ${p.riders.optional.map(esc).join(' · ')}</p>` : ''}
-      <p class="muted"><b>설명 의무</b> ${p.checklist.map(esc).join(' / ')}</p>
-      ${auto ? '<p class="auto">저장하면 가입 트래킹에 \'추천\' 단계로 등록돼요.</p>' : ''}</div>`;
+  function designBox(code, p) {
+    const d = getDesign(code, p.id);
+    return `<div class="prod">
+      <div class="prod-head"><span class="pill accent">당사 추천 설계</span><b>${esc(p.name)}</b><small>${esc(p.line)}</small></div>
+      <div class="design">
+        <div class="d-main"><span class="d-lbl">메인 보장</span><p>${esc(d.main)}</p>${d.limits.length ? `<ul class="limits">${d.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}</div>
+        ${d.riders.length ? `<div class="d-riders"><span class="d-lbl">특약 구성 <span class="opt">(체크한 특약이 설계에 포함돼요)</span></span>
+          ${d.riders.map((rd, i) => `<label class="rider ${rd.kind}" for="rd_${code}_${i}"><input id="rd_${code}_${i}" type="checkbox" data-rider="${code}|${i}" ${rd.selected ? 'checked' : ''} ${rd.kind === 'required' ? 'disabled' : ''}>
+            <span class="rk">${E.RIDER_KIND[rd.kind]}</span><span class="rn">${esc(rd.name)}</span><span class="rw">${esc(rd.why)}</span></label>`).join('')}</div>` : ''}
+      </div>
+      <p class="muted small"><b>설명 의무</b> ${p.checklist.map(esc).join(' / ')}</p>
+      <p class="auto">저장하면 이 설계가 가입 트래킹에 '추천' 단계로 등록돼요.</p></div>`;
   }
   function recCard(r) {
     const a = state.draft.answers[r.code] || {};
     const prods = r.products.map(id => E.PRODUCT[id]);
     return `<article class="card ins stripe-info">
       <header><div><h3>${esc(r.name)}</h3><p class="law">${esc(r.reason)}</p></div>${badge('권장')}</header>
-      ${prods.length > 1 ? `<p class="muted">Ⅰ은 보험기간 중 <b>사고 발생</b> 기준, Ⅱ는 보험기간 중 <b>최초 손해배상청구</b> 기준(소급보상일자 적용)이에요.</p>` : ''}
+      ${prods.length > 1 ? `<p class="muted">Ⅰ은 보험기간 중 <b>사고 발생</b> 기준, Ⅱ는 보험기간 중 <b>최초 손해배상청구</b> 기준(소급보상일자 적용)이에요. 음식점·카페는 보통 Ⅰ을 권해요.</p>` : ''}
       <div class="status-row"><span class="lbl">제안 상품</span>
         <label class="seg ${!a.productId ? 'on' : ''}"><input type="radio" name="rec_${r.code}" value="" data-rec="${r.code}" ${!a.productId ? 'checked' : ''}>제안 안 함</label>
         ${prods.map(p => `<label class="seg ${a.productId === p.id ? 'on' : ''}"><input type="radio" name="rec_${r.code}" value="${p.id}" data-rec="${r.code}" ${a.productId === p.id ? 'checked' : ''}>${esc(p.name)}</label>`).join('')}
       </div>
-      ${a.productId ? productBox(E.PRODUCT[a.productId], true) : ''}
+      ${a.productId ? designBox(r.code, E.PRODUCT[a.productId]) : ''}
     </article>`;
   }
 
@@ -385,7 +400,8 @@
         setPath(d, el.dataset.path, val);
         if (el.dataset.path === 'biz.sido') d.biz.sigungu = '';
         if (['biz.sido', 'biz.sigungu', 'biz.addressDetail'].includes(el.dataset.path)) d.biz.address = [d.biz.sido, d.biz.sigungu === d.biz.sido ? '' : d.biz.sigungu, d.biz.addressDetail].filter(Boolean).join(' ');
-        const structural = ['biz.hasElevator', 'biz.lpg', 'biz.cityGas', 'biz.sido'].includes(el.dataset.path) || (state.showMissing && el.tagName === 'SELECT');
+        if (el.dataset.path.startsWith('biz.')) Object.values(d.answers).forEach(a => { delete a.design; });
+        const structural = ['biz.hasElevator', 'biz.lpg', 'biz.cityGas', 'biz.sido', 'biz.industry', 'biz.isBuildingOwner', 'biz.smeType'].includes(el.dataset.path) || (state.showMissing && el.tagName === 'SELECT');
         if (structural) render(); else if ($('#preview')) $('#preview').innerHTML = previewPanel();
       });
     });
@@ -402,6 +418,10 @@
     }));
     document.querySelectorAll('[data-rec]').forEach(el => el.addEventListener('change', () => {
       const k = el.dataset.rec; d.answers[k] = { ...(d.answers[k] || {}), productId: el.value || null }; render();
+    }));
+    document.querySelectorAll('[data-rider]').forEach(el => el.addEventListener('change', () => {
+      const [k, i] = el.dataset.rider.split('|'); const dz = d.answers[k] && d.answers[k].design;
+      if (dz && dz.riders[i]) dz.riders[i].selected = el.checked;
     }));
     const od = $('#optDetails'); if (od) od.addEventListener('toggle', () => { state.optOpen = od.open; });
     const memo = $('#memo'); if (memo) memo.addEventListener('input', () => { d.memo = memo.value; });
@@ -426,30 +446,107 @@
       const now = new Date().toISOString();
       const results = rs.map(r => {
         const a = d.answers[r.code] || {};
-        const productId = r.kind === 'recommended' ? (a.productId || null) : (a.status === '미가입' ? (r.products.find(id => E.PRODUCT[id] && E.PRODUCT[id].active) || null) : null);
+        const productId = r.kind === 'recommended' ? (r.result === '권장' ? a.productId || null : null)
+          : (a.status === '미가입' ? (r.products.find(id => E.PRODUCT[id] && E.PRODUCT[id].active) || null) : null);
         return { code: r.code, kind: r.kind, name: r.name, result: r.result, reason: r.reason, status: r.kind === 'mandatory' && r.result !== '비대상' ? a.status : null, insurer: a.insurer || '', expiry: a.expiry || '', productId };
       });
-      const enrollments = results.filter(r => r.productId && (r.kind === 'recommended' ? r.result === '권장' : true)).map(r => ({
-        id: uid(), code: r.code, productId: r.productId, kind: r.kind, stage: '추천', stageAt: now, checklistDone: false, policyNo: '', premium: null, note: '',
-        history: [{ from: null, to: '추천', at: now, by: state.me.id }]
-      }));
-      const c = { id: uid(), counselorId: state.me.id, consultedAt: now, customer: d.customer, biz: d.biz, eligibility: E.eligibility(d.biz), results, enrollments, memo: d.memo, };
+      const enrollments = results.filter(r => r.productId).map(r => {
+        const dz = (d.answers[r.code] && d.answers[r.code].design && d.answers[r.code].design.productId === r.productId) ? d.answers[r.code].design : E.design(r.productId, d.biz);
+        return {
+          id: uid(), code: r.code, productId: r.productId, kind: r.kind, stage: '추천', stageAt: now, checklistDone: false, policyNo: '', premium: null, note: '',
+          design: { main: dz.main, limits: dz.limits, riders: dz.riders.filter(x => x.selected).map(x => ({ name: x.name, kind: x.kind })) },
+          history: [{ from: null, to: '추천', at: now, by: state.me.id }]
+        };
+      });
+      const c = { id: uid(), counselorId: state.me.id, consultedAt: now, customer: d.customer, biz: d.biz, eligibility: E.eligibility(d.biz), results, enrollments, memo: d.memo };
       const btn = $('#saveConsult'); btn.disabled = true; btn.textContent = '저장 중…';
       const ok = await saveConsult(c);
-      if (ok) { toast(`저장했어요. 당사 상품 추천 ${enrollments.length}건이 가입 트래킹에 등록됐어요.`); state.draft = null; state.step = 1; location.hash = '#tracking'; render(); }
+      if (ok) { toast(`저장했어요. 당사 상품 설계 ${enrollments.length}건이 가입 트래킹에 등록됐어요.`); state.draft = null; state.step = 1; location.hash = '#customers'; render(); }
       else { btn.disabled = false; btn.textContent = '상담 저장'; }
     });
+  }
+
+  /* ---------- 만기·고객 카드 공통 ---------- */
+  const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const addYear = s => { const d = new Date(s + 'T00:00:00'); d.setFullYear(d.getFullYear() + 1); d.setDate(d.getDate() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const dday = s => Math.round((new Date(s + 'T00:00:00') - new Date(todayStr() + 'T00:00:00')) / 86400000);
+  const ddayTxt = n => n === 0 ? 'D-Day' : n > 0 ? `D-${n}` : `만기 D+${-n}`;
+  const ddayCls = n => n < 0 ? 'crit' : n <= 30 ? 'crit' : n <= 60 ? 'warn' : 'mute';
+  const activeConsults = () => visibleConsults().filter(c => !c.archived);
+  function expiriesOf(c) {
+    const list = [];
+    (c.results || []).forEach(r => {
+      if (r.status === '가입' && r.expiry) list.push({ name: E.RULE[r.code]?.name || r.name || r.code, insurer: r.insurer || '타사', date: r.expiry, ours: /농협/.test(r.insurer || '') });
+    });
+    (c.enrollments || []).forEach(e => {
+      if (e.stage === '계약성립' && e.expiry) list.push({ name: E.PRODUCT[e.productId]?.name || e.productId, insurer: 'NH농협손해보험', date: e.expiry, ours: true, policyNo: e.policyNo });
+    });
+    return list.map(x => ({ ...x, d: dday(x.date) })).sort((a, b) => a.d - b.d);
+  }
+  const nextExpiry = c => { const l = expiriesOf(c); return l.length ? l[0] : null; };
+  async function setArchived(id, archived) {
+    const c = structuredClone(state.consults.find(x => x.id === id)); if (!c) return;
+    if (archived) { c.archived = true; c.archivedAt = new Date().toISOString(); c.archivedBy = state.me.id; }
+    else { delete c.archived; delete c.archivedAt; delete c.archivedBy; }
+    const ok = await saveConsult(c);
+    if (ok) toast(archived ? `${c.biz.bizName} 고객을 관리 목록에서 삭제했어요. 가입 트래킹 하단에서 복원할 수 있어요.` : `${c.biz.bizName} 고객을 복원했어요.`);
+    state.confirmArchive = null; state.drawer = null; render();
+  }
+
+  /* ---------- 고객 카드 ---------- */
+  function customersView() {
+    const f = state.cardFilter;
+    let cs = activeConsults().map(c => ({ c, nx: nextExpiry(c), gaps: (c.results || []).filter(r => r.kind === 'mandatory' && r.status === '미가입').length }));
+    const all = cs.length;
+    const soon = cs.filter(x => x.nx && x.nx.d <= 60).length;
+    if (f.q) { const q = f.q.toLowerCase(); cs = cs.filter(({ c }) => [c.customer.name, c.biz.bizName, c.customer.phone].some(t => (t || '').toLowerCase().includes(q))); }
+    if (f.mode === 'soon') cs = cs.filter(x => x.nx && x.nx.d <= 60);
+    if (f.mode === 'gap') cs = cs.filter(x => x.gaps > 0);
+    cs.sort((a, b) => (a.nx ? a.nx.d : 1e9) - (b.nx ? b.nx.d : 1e9) || new Date(b.c.consultedAt) - new Date(a.c.consultedAt));
+    return `<div class="page-head"><h1>고객 카드</h1><p>${state.me.role === 'manager' ? '전체' : '내'} 고객 ${all}명 · 만기 60일 이내 <b class="crit-t">${soon}명</b> · 만기가 가까운 고객이 위에 표시돼요</p></div>
+      <div class="filters card">
+        <div class="field"><label for="cq">검색</label><input id="cq" value="${esc(f.q)}" placeholder="고객명·상호·연락처"></div>
+        <div class="seg-group" role="group" aria-label="보기">${[['all', '전체'], ['soon', '만기 60일 이내'], ['gap', '미가입 의무보험 있음']].map(([k, t]) => `<button class="seg ${f.mode === k ? 'on' : ''}" data-cmode="${k}">${t}</button>`).join('')}</div>
+      </div>
+      ${cs.length ? `<div class="cards">${cs.map(customerCard).join('')}</div>` : `<div class="card empty">${all ? '조건에 맞는 고객이 없어요.' : '아직 등록된 고객이 없어요. 새 상담을 저장하면 여기에 카드로 모여요.'}</div>`}`;
+  }
+  function customerCard({ c, nx, gaps }) {
+    const ex = expiriesOf(c);
+    const open = (c.enrollments || []).filter(e => E.OPEN_STAGES.includes(e.stage)).length;
+    const conf = state.confirmArchive === c.id;
+    return `<article class="ccard ${nx ? 'b-' + ddayCls(nx.d) : ''}">
+      <header>
+        <div><h3>${esc(c.biz.bizName)}</h3><p>${esc(c.customer.name)} · ${esc(maskPhone(c.customer.phone))}</p></div>
+        ${nx ? `<span class="dday ${ddayCls(nx.d)}">${ddayTxt(nx.d)}</span>` : '<span class="dday none">만기 정보 없음</span>'}
+      </header>
+      <div class="cmeta"><span class="pill mute">${esc(E.IND[c.biz.industry]?.name || c.biz.industry || '-')}</span>${gaps ? `<span class="pill crit">미가입 의무보험 ${gaps}</span>` : ''}${open ? `<span class="pill info">진행 중 추천 ${open}</span>` : ''}${state.me.role === 'manager' ? `<span class="pill outline">${esc(ACC[c.counselorId]?.name || '')}</span>` : ''}</div>
+      ${ex.length ? `<ul class="exp">${ex.map(x => `<li><span class="en">${esc(x.name)}</span><span class="ei">${x.ours ? '<b class="ours">당사</b>' : esc(x.insurer)}</span><span class="ed num">${x.date.replace(/-/g, '.')}</span><span class="dday sm ${ddayCls(x.d)}">${ddayTxt(x.d)}</span></li>`).join('')}</ul>` : '<p class="muted small">가입 보험의 만기일이 입력되지 않았어요.</p>'}
+      <footer>
+        <small>상담 ${fmtDate(c.consultedAt)}</small>
+        ${conf ? `<span class="confirm">관리 목록에서 삭제할까요? <button class="btn danger sm" data-arch="${c.id}">삭제</button><button class="btn ghost sm" data-arch-cancel>취소</button></span>`
+          : `<span><button class="btn ghost sm" data-ctrack="${esc(c.biz.bizName)}">추천 건 보기</button><button class="btn ghost sm" data-arch-ask="${c.id}">관리 종료</button></span>`}
+      </footer>
+    </article>`;
+  }
+  function bindCustomers() {
+    const f = state.cardFilter;
+    const q = $('#cq'); q.addEventListener('input', () => { f.q = q.value; clearTimeout(bindCustomers._t); bindCustomers._t = setTimeout(() => { render(); const n = $('#cq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); });
+    document.querySelectorAll('[data-cmode]').forEach(b => b.addEventListener('click', () => { f.mode = b.dataset.cmode; render(); }));
+    document.querySelectorAll('[data-ctrack]').forEach(b => b.addEventListener('click', () => { state.trackFilter = { q: b.dataset.ctrack, stage: '', ind: '', product: '' }; location.hash = '#tracking'; }));
+    document.querySelectorAll('[data-arch-ask]').forEach(b => b.addEventListener('click', () => { state.confirmArchive = b.dataset.archAsk; render(); }));
+    document.querySelectorAll('[data-arch-cancel]').forEach(b => b.addEventListener('click', () => { state.confirmArchive = null; render(); }));
+    document.querySelectorAll('[data-arch]').forEach(b => b.addEventListener('click', () => setArchived(b.dataset.arch, true)));
   }
 
   /* ---------- 가입 트래킹 ---------- */
   function enrollmentRows() {
     const rows = [];
-    visibleConsults().forEach(c => (c.enrollments || []).forEach(e => rows.push({ c, e })));
+    activeConsults().forEach(c => (c.enrollments || []).forEach(e => rows.push({ c, e })));
     return rows.sort((a, b) => new Date(b.c.consultedAt) - new Date(a.c.consultedAt));
   }
   function nextAction(e, c) {
     const age = daysBetween(e.stageAt || c.consultedAt, new Date());
-    if (e.stage === '계약성립') return '완료';
+    if (e.stage === '계약성립') return e.expiry ? `만기 ${ddayTxt(dday(e.expiry))}` : '완료';
     if (['거절', '철회'].includes(e.stage)) return '종료';
     if (e.kind === 'mandatory' && E.OPEN_STAGES.includes(e.stage) && daysBetween(c.consultedAt, new Date()) > 14) return 'FOLLOW';
     return { '추천': '상품 설명', '설명완료': '청약서 작성', '청약': '계약 성립 확인' }[e.stage] + (age ? ` · ${age}일째` : '');
@@ -458,18 +555,19 @@
     const f = state.trackFilter; const all = enrollmentRows();
     const rows = all.filter(({ c, e }) => {
       if (f.stage && e.stage !== f.stage) return false;
-      if (f.ksic && c.biz.ksic !== f.ksic) return false;
+      if (f.ind && c.biz.industry !== f.ind) return false;
       if (f.product && e.productId !== f.product) return false;
       if (f.q) { const q = f.q.toLowerCase(); if (![c.customer.name, c.biz.bizName, c.biz.bizNo].some(x => (x || '').toLowerCase().includes(q))) return false; }
       return true;
     });
     const counts = E.STAGES.map(s => [s, all.filter(r => r.e.stage === s).length]);
     const follow = all.filter(({ c, e }) => nextAction(e, c) === 'FOLLOW').length;
+    const archived = visibleConsults().filter(c => c.archived);
     return `<div class="page-head"><h1>가입 트래킹</h1><p>${state.me.role === 'manager' ? '전체 상담사' : '내'} 추천 ${all.length}건 · 후속 연락 필요 <b class="crit-t">${follow}건</b></p></div>
       <div class="stage-strip">${counts.map(([s, n]) => `<button class="stage-chip ${f.stage === s ? 'on' : ''}" data-stage="${s}">${stageBadge(s)}<b>${n}</b></button>`).join('')}</div>
       <div class="filters card">
         <div class="field"><label for="tq">검색</label><input id="tq" value="${esc(f.q)}" placeholder="고객명·상호·사업자번호"></div>
-        <div class="field"><label for="tk">업종</label><select id="tk"><option value="">전체</option>${E.KSIC.map(([c, n]) => `<option value="${c}" ${f.ksic === c ? 'selected' : ''}>${c} ${esc(n)}</option>`).join('')}</select></div>
+        <div class="field"><label for="tk">업종</label><select id="tk"><option value="">전체</option>${E.INDUSTRIES.map(i => `<option value="${i.code}" ${f.ind === i.code ? 'selected' : ''}>${esc(i.name)}</option>`).join('')}</select></div>
         <div class="field"><label for="tp">상품</label><select id="tp"><option value="">전체</option>${E.PRODUCTS.filter(p => p.active).map(p => `<option value="${p.id}" ${f.product === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
         <button class="btn ghost sm" id="treset">필터 초기화</button>
       </div>
@@ -478,66 +576,85 @@
         <tbody>${rows.map(({ c, e }) => { const na = nextAction(e, c); return `<tr tabindex="0" data-open="${c.id}|${e.id}">
           <td class="num">${fmtDate(c.consultedAt)}</td>
           <td><b>${esc(c.customer.name)}</b><br><small>${esc(c.biz.bizName)} · ${esc(maskPhone(c.customer.phone))}</small></td>
-          <td>${esc(c.biz.ksic)}</td><td>${esc(E.PRODUCT[e.productId]?.name || e.productId)}</td>
+          <td><small>${esc(E.IND[c.biz.industry]?.name || '-')}</small></td><td>${esc(E.PRODUCT[e.productId]?.name || e.productId)}${e.design ? `<br><small>특약 ${e.design.riders.length}개</small>` : ''}</td>
           <td>${e.kind === 'mandatory' ? '<span class="pill crit">의무</span>' : '<span class="pill info">권장</span>'}</td>
-          <td>${stageBadge(e.stage)}</td>${state.me.role === 'manager' ? `<td>${esc(ACC[c.counselorId]?.name || c.counselorId)}</td>` : ''}
+          <td>${stageBadge(e.stage)}</td>${state.me.role === 'manager' ? `<td>${esc(ACC[c.counselorId]?.name || '')}</td>` : ''}
           <td>${na === 'FOLLOW' ? '<span class="pill crit">후속 연락 필요</span>' : esc(na)}</td></tr>`; }).join('')}</tbody></table></div>`
-        : `<div class="card empty">${all.length ? '조건에 맞는 추천 건이 없어요.' : '아직 추천 건이 없어요. 새 상담에서 미가입 의무보험을 찾으면 여기에 쌓여요.'}</div>`}`;
+        : `<div class="card empty">${all.length ? '조건에 맞는 추천 건이 없어요.' : '아직 추천 건이 없어요. 새 상담에서 미가입 의무보험을 찾으면 여기에 쌓여요.'}</div>`}
+      ${archived.length ? `<details class="card archived" ${state.showArchived ? 'open' : ''} id="archDetails"><summary>관리 종료(삭제)한 고객 ${archived.length}명</summary>
+        <ul>${archived.map(c => `<li><span><b>${esc(c.biz.bizName)}</b> · ${esc(c.customer.name)} <small>삭제 ${fmtDate(c.archivedAt)}</small></span><button class="btn ghost sm" data-restore="${c.id}">복원</button></li>`).join('')}</ul>
+        <p class="foot">삭제한 고객은 목록·고객 카드에서 빠지고, 실적 대시보드 집계에는 그대로 남아요.</p></details>` : ''}`;
   }
   function bindTracking() {
     const f = state.trackFilter;
     const q = $('#tq'); q.addEventListener('input', () => { f.q = q.value; clearTimeout(bindTracking._t); bindTracking._t = setTimeout(() => { render(); const n = $('#tq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); });
-    $('#tk').addEventListener('change', e => { f.ksic = e.target.value; render(); });
+    $('#tk').addEventListener('change', e => { f.ind = e.target.value; render(); });
     $('#tp').addEventListener('change', e => { f.product = e.target.value; render(); });
-    $('#treset').addEventListener('click', () => { state.trackFilter = { q: '', stage: '', ksic: '', product: '' }; render(); });
+    $('#treset').addEventListener('click', () => { state.trackFilter = { q: '', stage: '', ind: '', product: '' }; render(); });
     document.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => { f.stage = f.stage === b.dataset.stage ? '' : b.dataset.stage; render(); }));
     document.querySelectorAll('[data-open]').forEach(tr => {
       const open = () => { const [cid, eid] = tr.dataset.open.split('|'); state.drawer = { cid, eid, to: null, checks: {} }; render(); };
       tr.addEventListener('click', open); tr.addEventListener('keydown', ev => { if (ev.key === 'Enter') open(); });
     });
+    const ad = $('#archDetails'); if (ad) ad.addEventListener('toggle', () => { state.showArchived = ad.open; });
+    document.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', () => setArchived(b.dataset.restore, false)));
   }
   function drawerView() {
     const c = state.consults.find(x => x.id === state.drawer.cid); if (!c) return '';
     const e = c.enrollments.find(x => x.id === state.drawer.eid); if (!e) return '';
-    const p = E.PRODUCT[e.productId]; const dr = state.drawer; const to = dr.to || e.stage;
+    const p = E.PRODUCT[e.productId] || { checklist: [] }; const dr = state.drawer; const to = dr.to || e.stage;
     const needCheck = !e.checklistDone && ['설명완료', '청약', '계약성립'].includes(to);
     const mine = state.me.role === 'manager' || c.counselorId === state.me.id;
+    const start = e.startDate || todayStr();
     return `<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-label="추천 건 상세">
       <header><div><small>${fmtDate(c.consultedAt)} · ${esc(ACC[c.counselorId]?.name || '')}</small><h2>${esc(c.biz.bizName)}</h2><p>${esc(c.customer.name)} · ${esc(c.customer.phone)}</p></div><button class="btn ghost sm" id="dclose" aria-label="닫기">닫기</button></header>
-      <section><h3>${esc(p?.name || '')}</h3><p class="muted">${esc(E.RULE[e.code]?.name || '')} · ${e.kind === 'mandatory' ? '의무보험 미가입' : '권장'} · 현재 ${stageBadge(e.stage)}</p></section>
-      <section class="grid2 small"><div><dt>업종</dt><dd>${esc(c.biz.ksic)} ${esc(E.KSIC_NAME[c.biz.ksic] || '')}</dd></div><div><dt>적격성</dt><dd>${badge(c.eligibility?.status || '-')}</dd></div>
-        <div><dt>건물</dt><dd>${c.biz.isBuildingOwner ? '자가' : c.biz.isBuildingOwner === false ? '임차' : '-'} · ${c.biz.buildingArea ? E.fmtNum(c.biz.buildingArea) + '㎡' : '-'}</dd></div><div><dt>주요 생산품</dt><dd>${esc(c.biz.mainProducts || '-')}</dd></div><div><dt>소재지</dt><dd>${esc(c.biz.address || [c.biz.sido, c.biz.sigungu].filter(Boolean).join(' ') || '-')}</dd></div></section>
+      <section><h3>${esc(p.name || e.productId)}</h3><p class="muted">${esc(E.RULE[e.code]?.name || '')} · ${e.kind === 'mandatory' ? '의무보험 미가입' : '권장'} · 현재 ${stageBadge(e.stage)}</p></section>
+      ${e.design ? `<section class="design dz"><span class="d-lbl">메인 보장</span><p>${esc(e.design.main)}</p>${(e.design.limits || []).length ? `<ul class="limits">${e.design.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
+        <span class="d-lbl">포함 특약 ${e.design.riders.length}개</span>${e.design.riders.length ? `<ul class="rlist">${e.design.riders.map(r => `<li><span class="rk ${r.kind}">${E.RIDER_KIND[r.kind]}</span>${esc(r.name)}</li>`).join('')}</ul>` : '<p class="muted small">특약 없음</p>'}</section>` : ''}
+      <section class="grid2 small"><div><dt>업종</dt><dd>${esc(E.IND[c.biz.industry]?.name || '-')}</dd></div><div><dt>소상공인</dt><dd>${badge(c.eligibility?.status || '-')}</dd></div>
+        <div><dt>건물</dt><dd>${c.biz.isBuildingOwner ? '자가' : c.biz.isBuildingOwner === false ? '임차' : '-'}${c.biz.bizArea ? ` · 영업장 ${E.fmtNum(c.biz.bizArea)}㎡` : ''}</dd></div><div><dt>소재지</dt><dd>${esc(c.biz.address || '-')}</dd></div></section>
       ${mine ? `<section><h3>단계 변경</h3>
         <div class="field"><label for="dstage">다음 단계</label><select id="dstage">${E.STAGES.map(s => `<option ${to === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
         ${needCheck ? `<div class="checklist"><p><b>설명 의무사항</b>을 모두 확인해야 저장할 수 있어요.</p>${p.checklist.map((t, i) => `<label class="check" for="ck${i}"><input id="ck${i}" type="checkbox" data-ck="${i}" ${dr.checks[i] ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>` : ''}
-        ${to === '계약성립' ? `<div class="grid2"><div class="field"><label for="dpol">증권번호</label><input id="dpol" value="${esc(e.policyNo)}"></div><div class="field"><label for="dprem">연 보험료 (원)</label><input id="dprem" type="number" min="0" value="${esc(v(e.premium))}"></div></div>` : ''}
+        ${to === '계약성립' ? `<div class="grid2"><div class="field"><label for="dpol">증권번호</label><input id="dpol" value="${esc(e.policyNo)}"></div><div class="field"><label for="dprem">연 보험료 (원)</label><input id="dprem" type="number" min="0" value="${esc(v(e.premium))}"></div>
+          <div class="field"><label for="dstart">보험 시작일</label><input id="dstart" type="date" value="${esc(start)}"></div><div class="field"><label for="dexp">만기일 <span class="opt">(고객 카드 D-day)</span></label><input id="dexp" type="date" value="${esc(e.expiry || addYear(start))}"></div></div>` : ''}
         <div class="field"><label for="dnote">메모</label><textarea id="dnote" rows="2">${esc(e.note)}</textarea></div>
         <p class="err" id="derr" role="alert"></p>
         <button class="btn primary block" id="dsave" ${state.canWrite ? '' : 'disabled'}>저장</button></section>` : '<p class="muted">다른 상담사의 건이라 볼 수만 있어요.</p>'}
       <section><h3>단계 이력</h3><ol class="timeline">${[...(e.history || [])].reverse().map(h => `<li><span class="dot"></span><div>${stageBadge(h.to)} <small>${fmtDate(h.at)} · ${esc(ACC[h.by || c.counselorId]?.name || '')}</small>${h.note ? `<p>${esc(h.note)}</p>` : ''}</div></li>`).join('')}</ol></section>
       ${c.memo ? `<section><h3>상담 메모</h3><p>${esc(c.memo)}</p></section>` : ''}
+      ${mine ? `<section class="danger-zone">${state.confirmArchive === c.id ? `<p>이 고객(${esc(c.biz.bizName)})을 관리 목록에서 삭제할까요? 추천 건 ${c.enrollments.length}개가 함께 숨겨지고, 언제든 복원할 수 있어요.</p><div class="row"><button class="btn danger sm" data-arch="${c.id}">삭제</button><button class="btn ghost sm" data-arch-cancel>취소</button></div>`
+        : `<button class="btn ghost sm" data-arch-ask="${c.id}">이 고객 관리 종료(삭제)</button>`}</section>` : ''}
     </aside>`;
   }
   function bindDrawer() {
-    const close = () => { state.drawer = null; render(); };
+    const close = () => { state.drawer = null; state.confirmArchive = null; render(); };
     $('#dclose').addEventListener('click', close); $('#scrim').addEventListener('click', close);
-    document.addEventListener("keydown", function onEsc(ev) { if (ev.key === "Escape" && state.drawer) { document.removeEventListener("keydown", onEsc); close(); } });
+    document.addEventListener('keydown', function onEsc(ev) { if (ev.key === 'Escape' && state.drawer) { document.removeEventListener('keydown', onEsc); close(); } });
+    document.querySelectorAll('.drawer [data-arch-ask]').forEach(b => b.addEventListener('click', () => { state.confirmArchive = b.dataset.archAsk; render(); }));
+    document.querySelectorAll('.drawer [data-arch-cancel]').forEach(b => b.addEventListener('click', () => { state.confirmArchive = null; render(); }));
+    document.querySelectorAll('.drawer [data-arch]').forEach(b => b.addEventListener('click', () => setArchived(b.dataset.arch, true)));
     const st = $('#dstage'); if (!st) return;
     st.addEventListener('change', () => { state.drawer.to = st.value; render(); });
     document.querySelectorAll('[data-ck]').forEach(el => el.addEventListener('change', () => { state.drawer.checks[el.dataset.ck] = el.checked; }));
+    const ds = $('#dstart'); if (ds) ds.addEventListener('change', () => { const de = $('#dexp'); if (de && ds.value) de.value = addYear(ds.value); });
     $('#dsave').addEventListener('click', async () => {
       const c = structuredClone(state.consults.find(x => x.id === state.drawer.cid));
-      const e = c.enrollments.find(x => x.id === state.drawer.eid); const p = E.PRODUCT[e.productId];
+      const e = c.enrollments.find(x => x.id === state.drawer.eid); const p = E.PRODUCT[e.productId] || { checklist: [] };
       const to = st.value; const note = $('#dnote').value;
       if (!e.checklistDone && ['설명완료', '청약', '계약성립'].includes(to)) {
-        const ok = p.checklist.every((_, i) => state.drawer.checks[i]);
-        if (!ok) { $('#derr').textContent = '설명 의무사항을 모두 체크하세요.'; return; }
+        if (!p.checklist.every((_, i) => state.drawer.checks[i])) { $('#derr').textContent = '설명 의무사항을 모두 체크하세요.'; return; }
         e.checklistDone = true;
       }
-      if (to === '계약성립') { e.policyNo = $('#dpol').value; e.premium = $('#dprem').value ? Number($('#dprem').value) : null; if (!e.policyNo) { $('#derr').textContent = '증권번호를 입력하세요.'; return; } }
+      if (to === '계약성립') {
+        e.policyNo = $('#dpol').value; e.premium = $('#dprem').value ? Number($('#dprem').value) : null;
+        e.startDate = $('#dstart').value; e.expiry = $('#dexp').value;
+        if (!e.policyNo) { $('#derr').textContent = '증권번호를 입력하세요.'; return; }
+        if (!e.expiry) { $('#derr').textContent = '만기일을 입력하세요.'; return; }
+      }
       const now = new Date().toISOString();
       if (to !== e.stage) { e.history = [...(e.history || []), { from: e.stage, to, at: now, by: state.me.id, note }]; e.stage = to; e.stageAt = now; }
-      else if (note !== e.note && note) { e.history = [...(e.history || []), { from: e.stage, to: e.stage, at: now, by: state.me.id, note }]; }
+      else if (note && note !== e.note) { e.history = [...(e.history || []), { from: e.stage, to: e.stage, at: now, by: state.me.id, note }]; }
       e.note = note;
       const ok = await saveConsult(c);
       if (ok) { toast('저장했어요.'); state.drawer = null; render(); }
@@ -576,8 +693,8 @@
     const m = metrics(cs);
     const counselors = ACCOUNTS.filter(a => a.role === 'counselor');
     const byC = counselors.map(a => ({ a, m: metrics(cs.filter(c => c.counselorId === a.id)) }));
-    const ksics = [...new Set(m.ens.map(e => e.c.biz.ksic))].sort();
-    const byK = ksics.map(k => { const es = m.ens.filter(e => e.c.biz.ksic === k); return { k, n: es.length, w: es.filter(e => e.stage === '계약성립').length }; }).sort((x, y) => y.n - x.n).slice(0, 8);
+    const ksics = [...new Set(m.ens.map(e => e.c.biz.industry))].filter(Boolean);
+    const byK = ksics.map(k => { const es = m.ens.filter(e => e.c.biz.industry === k); return { k, n: es.length, w: es.filter(e => e.stage === '계약성립').length }; }).sort((x, y) => y.n - x.n).slice(0, 8);
     const byP = E.PRODUCTS.filter(p => p.active).map(p => { const es = m.ens.filter(e => e.productId === p.id); return { p, n: es.length, w: es.filter(e => e.stage === '계약성립').length }; }).filter(x => x.n);
     const months = [...new Set(cs.map(c => c.consultedAt.slice(0, 7)))].sort();
     const byM = months.map(mo => { const es = m.ens.filter(e => e.c.consultedAt.startsWith(mo)); return { mo, n: es.length, w: es.filter(e => e.stage === '계약성립').length, c: cs.filter(c => c.consultedAt.startsWith(mo)).length }; });
@@ -591,7 +708,7 @@
       <section class="tiles">
         ${tile('고객 기준 가입률', pctTxt(m.custRate), `${cs.filter(c => (c.enrollments || []).some(e => e.stage === '계약성립')).length} / ${cs.filter(c => (c.enrollments || []).length).length} 고객`, '계약성립 1건 이상인 고객 수 ÷ 당사 상품을 추천받은 고객 수')}
         ${tile('추천 건 기준 가입률', pctTxt(m.recRate), `${m.won} / ${m.recs} 건`, '계약성립 건수 ÷ 전체 추천 건수 (진행 중 포함)')}
-        ${tile('상담', m.consults + '건', `제조 소기업 적격 ${m.eligible}건`)}
+        ${tile('상담', m.consults + '건', `소상공인 적격 ${m.eligible}건`)}
         ${tile('미가입 의무보험 발견', m.gaps + '건', '당사 미취급 포함')}
         ${tile('평균 소요일', m.avgDays === null ? '–' : m.avgDays + '일', '상담 → 계약성립')}
       </section>
@@ -599,7 +716,7 @@
         ${state.me.role === 'manager' && !dsh.counselor ? chartCard('상담사별 추천 건 기준 가입률', byC.map(x => ({ label: x.a.name, value: x.m.recRate, tip: `${x.a.name}: ${x.m.won}/${x.m.recs}건 계약성립 (${pctTxt(x.m.recRate)})` })), true) : ''}
         ${funnelCard(m.funnel)}
         ${chartCard('월별 추천 건 기준 가입률', byM.map(x => ({ label: x.mo.replace('-', '.'), value: pct(x.w, x.n), tip: `${x.mo.replace('-', '.')}: 상담 ${x.c}건, 추천 ${x.n}건 중 계약성립 ${x.w}건` })), true)}
-        ${chartCard('업종별 가입률 (추천 건 상위 8개)', byK.map(x => ({ label: x.k, value: pct(x.w, x.n), tip: `${x.k} ${E.KSIC_NAME[x.k]}: ${x.w}/${x.n}건` })), true)}
+        ${chartCard('업종별 가입률 (추천 건 상위 8개)', byK.map(x => ({ label: E.IND[x.k]?.name || x.k, value: pct(x.w, x.n), tip: `${E.IND[x.k]?.name || x.k}: ${x.w}/${x.n}건` })), true)}
         ${chartCard('상품별 가입률', byP.map(x => ({ label: x.p.name.replace('배상책임보험', '배상'), value: pct(x.w, x.n), tip: `${x.p.name}: ${x.w}/${x.n}건` })), true)}
       </div>
       ${state.me.role === 'manager' ? counselorTable(byC) : ''}`
@@ -636,12 +753,12 @@
       <section class="card"><h3>의무·권장 보험 규칙</h3><div class="table-wrap"><table class="tbl">
         <thead><tr><th>코드</th><th>보험</th><th>구분</th><th>근거</th><th>연결 상품</th><th>검증</th></tr></thead>
         <tbody>${E.RULES.map(r => `<tr><td><code>${r.code}</code></td><td>${esc(r.name)}</td><td>${r.kind === 'mandatory' ? '의무' : '권장'}</td><td><small>${esc(r.law)}</small></td>
-          <td>${r.products.length ? r.products.map(id => esc(E.PRODUCT[id].name)).join(', ') : '<span class="pill outline">당사 미취급</span>'}</td>
+          <td>${r.productBy ? '일반화재보험 / 공장화재보험(제조업)' : r.products.length ? r.products.map(id => esc(E.PRODUCT[id].name)).join(', ') : '<span class="pill outline">당사 미취급</span>'}</td>
           <td>${r.verified ? '<span class="pill good">해당 없음</span>' : '<span class="pill warn">미검증</span>'}</td></tr>`).join('')}</tbody></table></div></section>
       <section class="card"><h3>당사 상품 (제공 서류 2026.07.01 기준)</h3><div class="table-wrap"><table class="tbl">
-        <thead><tr><th>상품</th><th>분류</th><th>상태</th><th>필수 특약</th><th>서류</th></tr></thead>
+        <thead><tr><th>상품</th><th>분류</th><th>상태</th><th>설계 특약</th><th>서류</th></tr></thead>
         <tbody>${E.PRODUCTS.map(p => `<tr><td><b>${esc(p.name)}</b></td><td><small>${esc(p.line)}</small></td><td>${p.active ? '<span class="pill good">추천 사용</span>' : `<span class="pill mute">비활성</span><br><small>${esc(p.note || '')}</small>`}</td>
-          <td><small>${p.riders.special.map(esc).join('<br>') || '-'}</small></td>
+          <td><small>${p.riders.length ? p.riders.map(r => `${E.RIDER_KIND[r.kind]} · ${esc(r.name)}`).join('<br>') : '-'}</small></td>
           <td><small>${p.docs.map(d => d.endsWith('*') ? `${esc(d.slice(0, -1))} <span class="pill outline">내부</span>` : esc(d)).join('<br>') || '-'}</small></td></tr>`).join('')}</tbody></table></div>
         <p class="foot">'내부' 표시 서류(영업요율서·변경대비표)는 관리자 전용으로 다룹니다. 원본 파일은 사내 문서함에서 관리해요.</p></section>
       <section class="card"><h3>상담사 계정</h3><p class="foot">계정 추가·역할 변경은 README의 '계정 관리'를 따라 Supabase에서 해요.</p><div class="table-wrap"><table class="tbl"><thead><tr><th>ID</th><th>이름</th><th>소속</th><th>역할</th><th>상담 수</th></tr></thead>

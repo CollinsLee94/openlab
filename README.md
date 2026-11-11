@@ -1,6 +1,6 @@
 # 소상공인 보험 헤아림 — 상담사 콘솔
 
-제조업(KSIC C10~C34) 소기업 고객의 법정 의무보험을 진단하고, 미가입 보험에 당사 상품을 추천하고, 가입까지 추적하는 상담사용 웹앱입니다.
+소상공인 고객의 업종·시설 정보로 법정 의무보험을 진단하고, 미가입·권장 보험에 당사 상품 설계(메인보장+특약)를 제안하고, 가입과 만기까지 관리하는 상담사용 웹앱입니다.
 
 - **화면**: 정적 HTML/JS (빌드 과정 없음) → Vercel 무료 호스팅
 - **로그인·DB**: Supabase 무료 플랜 (Postgres + Auth + 행 단위 보안 + 실시간 반영)
@@ -65,6 +65,17 @@ where id = (select id from auth.users where email = 'admin@example.com');
 **퇴사·비활성화**: `update profiles set active = false where ...` (상담 기록은 유지되고 로그인만 막힘)
 
 **비밀번호 재설정**: Authentication → Users → 해당 사용자 → *Send password recovery* 또는 비밀번호 직접 변경
+
+## 4-1. 샘플 상담사 계정 (시연용)
+
+1. **Authentication → Users → Add user → Create new user**
+   - Email: `sample.counselor@hearim.test`
+   - Password: 원하는 비밀번호 (6자 이상)
+   - **Auto Confirm User** 체크
+2. **SQL Editor**에 `supabase/sample_counselor.sql` 전체를 붙여넣고 **Run** → 마지막 결과가 `10`이면 성공
+3. 위 이메일로 로그인하면 고객 카드·가입 트래킹·대시보드에 더미 상담 10건이 보입니다.
+
+더미 데이터를 다시 만들려면 `node scripts/gen-sample.js`를 실행한 뒤 2번을 반복하세요. 지우려면 `delete from consults where id like 'sample%';`
 
 ## 5. 권한 규칙
 
