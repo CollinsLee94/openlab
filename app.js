@@ -8,6 +8,22 @@
   const pctTxt = v => v === null ? '–' : v.toFixed(1) + '%';
   const maskPhone = p => (p || '').replace(/^(\d{3})-?(\d{3,4})-?(\d{4})$/, '$1-****-$3');
   const daysBetween = (a, b) => Math.floor((new Date(b) - new Date(a)) / 86400000);
+  const formatPhone = raw => {
+    const d = String(raw || '').replace(/\D/g, '').slice(0, 11);
+    if (d.startsWith('02')) {
+      if (d.length <= 2) return d;
+      if (d.length <= 5) return `${d.slice(0, 2)}-${d.slice(2)}`;
+      if (d.length <= 9) return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`;
+      return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6, 10)}`;
+    }
+    if (/^1[5-9]\d{2}/.test(d)) return d.length <= 4 ? d : `${d.slice(0, 4)}-${d.slice(4, 8)}`;
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    if (d.length <= 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  };
+  const validPhone = p => /^(01[016789]-\d{3,4}-\d{4}|02-\d{3,4}-\d{4}|0[3-6]\d-\d{3,4}-\d{4}|070-\d{4}-\d{4}|1[5-9]\d{2}-\d{4})$/.test(p);
+  const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   const uid = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
   let ACCOUNTS = [];
@@ -171,7 +187,7 @@
   function newDraft() {
     return {
       customer: { name: '', phone: '', email: '' },
-      biz: { bizName: '', bizNo: '', corpType: '법인', address: '', ksic: '', isMainBusiness: true, mainProducts: '', smeType: '', employees: null,
+      biz: { bizName: '', bizNo: '', corpType: '법인', sido: '', sigungu: '', addressDetail: '', address: '', ksic: '', isMainBusiness: true, mainProducts: '', smeType: '', employees: null,
         isBuildingOwner: null, buildingArea: null, buildingFloors: null, factoryArea: null, industrialComplex: false,
         hasElevator: false, elevatorCount: null, elevatorManager: null,
         lpg: false, lpgKg: null, cityGas: false, cityGasSpecific: false, hpGasStorage: false, spHpGasUse: false,
@@ -208,7 +224,7 @@
   function step1() {
     return `<section class="card form">
       <h2>고객 정보</h2>
-      <div class="grid3">${inp('customer.name', '고객명 (대표자)')}${inp('customer.phone', '연락처', 'tel', 'placeholder="010-0000-0000"')}${inp('customer.email', '이메일', 'email')}</div>
+      <div class="grid3">${inp('customer.name', '고객명 (대표자)')}${inp('customer.phone', '연락처', 'tel', 'placeholder="숫자만 입력 (예: 01012345678)" inputmode="numeric" maxlength="13" autocomplete="off"')}${inp('customer.email', '이메일 <span class="opt">(선택)</span>', 'email', 'placeholder="name@example.com"')}</div>
       <p class="err" id="stepErr" role="alert"></p>
       <div class="actions"><span></span><button class="btn primary" id="next1">다음: 사업장 정보</button></div>
     </section>`;
@@ -220,7 +236,12 @@
         <h2>기본</h2>
         <div class="grid3">${inp('biz.bizName', '상호')}${inp('biz.bizNo', '사업자등록번호', 'text', 'placeholder="000-00-00000"')}
           <div class="field"><label for="f_biz_corpType">사업자 구분</label><select id="f_biz_corpType" data-path="biz.corpType">${['법인', '개인'].map(o => `<option ${b.corpType === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div></div>
-        <div class="grid2">${inp('biz.address', '사업장 주소')}${inp('biz.mainProducts', '주요 생산품', 'text', 'placeholder="예: 김치, 알루미늄 브래킷"')}</div>
+        <div class="grid3">
+          <div class="field"><label for="f_biz_sido">사업장 시·도</label><select id="f_biz_sido" data-path="biz.sido"><option value="">선택</option>${Object.keys(window.REGIONS).map(s => `<option ${b.sido === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+          <div class="field"><label for="f_biz_sigungu">시·군·구</label><select id="f_biz_sigungu" data-path="biz.sigungu" ${b.sido ? '' : 'disabled'}><option value="">${b.sido ? '선택' : '시·도를 먼저 선택'}</option>${(window.REGIONS[b.sido] || []).map(g => `<option ${b.sigungu === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
+          ${inp('biz.addressDetail', '상세 주소 <span class="opt">(선택)</span>', 'text', 'placeholder="읍·면·동, 도로명, 번지"')}
+        </div>
+        <div class="grid2">${inp('biz.mainProducts', '주요 생산품', 'text', 'placeholder="예: 김치, 알루미늄 브래킷"')}</div>
         <div class="grid3">
           <div class="field"><label for="f_biz_ksic">주된 업종 (KSIC 중분류)</label><select id="f_biz_ksic" data-path="biz.ksic"><option value="">선택</option>${E.KSIC.map(([c, n]) => `<option value="${c}" ${b.ksic === c ? 'selected' : ''}>${c} ${esc(n)}</option>`).join('')}<option value="X" ${b.ksic === 'X' ? 'selected' : ''}>제조업 외 업종</option></select></div>
           ${tri('biz.isMainBusiness', '제조업이 주된 사업인가요? <i class="tip" data-tip="여러 업종을 함께 하면 평균매출액 비중이 가장 큰 업종이 주된 업종이에요.">?</i>')}
@@ -325,9 +346,12 @@
         if (el.type === 'checkbox') val = el.checked;
         else if (el.dataset.type === 'tri') val = el.value === '' ? null : el.value === '1';
         else if (el.type === 'number') val = el.value === '' ? null : Number(el.value);
+        else if (el.dataset.path === 'customer.phone') { val = formatPhone(el.value); el.value = val; }
         else val = el.value;
         setPath(d, el.dataset.path, val);
-        const structural = ['biz.hasElevator', 'biz.lpg', 'biz.cityGas'].includes(el.dataset.path);
+        if (el.dataset.path === 'biz.sido') d.biz.sigungu = '';
+        if (['biz.sido', 'biz.sigungu', 'biz.addressDetail'].includes(el.dataset.path)) d.biz.address = [d.biz.sido, d.biz.sigungu === d.biz.sido ? '' : d.biz.sigungu, d.biz.addressDetail].filter(Boolean).join(' ');
+        const structural = ['biz.hasElevator', 'biz.lpg', 'biz.cityGas', 'biz.sido'].includes(el.dataset.path);
         if (structural) render(); else if ($('#preview')) $('#preview').innerHTML = previewPanel();
       });
     });
@@ -350,11 +374,14 @@
     on('next1', () => {
       const c = d.customer;
       if (!c.name || !c.phone) return void ($('#stepErr').textContent = '고객명과 연락처를 입력하세요.');
+      if (!validPhone(c.phone)) return void ($('#stepErr').textContent = '연락처 형식을 확인하세요. 예: 010-1234-5678');
+      if (c.email && !validEmail(c.email)) return void ($('#stepErr').textContent = '이메일 형식을 확인하세요. 비워 두어도 괜찮아요.');
       state.step = 2; render(); window.scrollTo(0, 0);
     });
     on('prev2', () => { state.step = 1; render(); });
     on('next2', () => {
       if (!d.biz.bizName || !d.biz.ksic) { toast('상호와 주된 업종을 입력하세요.'); return; }
+      if (!d.biz.sido || !d.biz.sigungu) { toast('사업장 시·도와 시·군·구를 선택하세요.'); return; }
       state.step = 3; render(); window.scrollTo(0, 0);
     });
     on('prev3', () => { state.step = 2; render(); });
@@ -445,7 +472,7 @@
       <header><div><small>${fmtDate(c.consultedAt)} · ${esc(ACC[c.counselorId]?.name || '')}</small><h2>${esc(c.biz.bizName)}</h2><p>${esc(c.customer.name)} · ${esc(c.customer.phone)}</p></div><button class="btn ghost sm" id="dclose" aria-label="닫기">닫기</button></header>
       <section><h3>${esc(p?.name || '')}</h3><p class="muted">${esc(E.RULE[e.code]?.name || '')} · ${e.kind === 'mandatory' ? '의무보험 미가입' : '권장'} · 현재 ${stageBadge(e.stage)}</p></section>
       <section class="grid2 small"><div><dt>업종</dt><dd>${esc(c.biz.ksic)} ${esc(E.KSIC_NAME[c.biz.ksic] || '')}</dd></div><div><dt>적격성</dt><dd>${badge(c.eligibility?.status || '-')}</dd></div>
-        <div><dt>건물</dt><dd>${c.biz.isBuildingOwner ? '자가' : c.biz.isBuildingOwner === false ? '임차' : '-'} · ${c.biz.buildingArea ? E.fmtNum(c.biz.buildingArea) + '㎡' : '-'}</dd></div><div><dt>주요 생산품</dt><dd>${esc(c.biz.mainProducts || '-')}</dd></div></section>
+        <div><dt>건물</dt><dd>${c.biz.isBuildingOwner ? '자가' : c.biz.isBuildingOwner === false ? '임차' : '-'} · ${c.biz.buildingArea ? E.fmtNum(c.biz.buildingArea) + '㎡' : '-'}</dd></div><div><dt>주요 생산품</dt><dd>${esc(c.biz.mainProducts || '-')}</dd></div><div><dt>소재지</dt><dd>${esc(c.biz.address || [c.biz.sido, c.biz.sigungu].filter(Boolean).join(' ') || '-')}</dd></div></section>
       ${mine ? `<section><h3>단계 변경</h3>
         <div class="field"><label for="dstage">다음 단계</label><select id="dstage">${E.STAGES.map(s => `<option ${to === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
         ${needCheck ? `<div class="checklist"><p><b>설명 의무사항</b>을 모두 확인해야 저장할 수 있어요.</p>${p.checklist.map((t, i) => `<label class="check" for="ck${i}"><input id="ck${i}" type="checkbox" data-ck="${i}" ${dr.checks[i] ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>` : ''}

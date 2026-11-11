@@ -10,6 +10,7 @@
 index.html          화면 틀과 스타일
 app.js              화면 동작 (상담, 가입 트래킹, 대시보드, 관리자)
 engine.js           의무보험 판정 규칙·당사 상품 정보  ← 법령·상품이 바뀌면 여기를 수정
+regions.js          시·도 / 시·군·구 목록 (2026.11 기준) ← 행정구역이 바뀌면 여기를 수정
 config.js           Supabase 연결 정보
 supabase/schema.sql DB 테이블·권한 설정
 vercel.json         보안 헤더
