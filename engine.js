@@ -142,7 +142,7 @@
       main: '판매·제조·제공한 음식·제품으로 타인이 입은 신체·재산 손해 배상 (보험기간 중 사고 발생 기준)',
       limits: ['대인·대물 사고당 보상한도 협의 (소상공인 1억원 이상 권장)'],
       riders: [
-        { name: '농협 납품분 한정특약', kind: 'recommended', when: b => b.supplyNH, why: () => '농협 계통 납품 물량에 맞춰 보장' },
+        { name: '농협 납품분 한정특약', kind: 'optional', when: () => true, why: () => '농협 계통에 납품하는 경우 납품 물량에 맞춰 보장' },
         { name: '판매인 특약', kind: 'recommended', when: b => b.industry === 'RETAIL', why: () => '직접 만들지 않은 제품을 판매' },
         { name: '품질저하 부담보 특약', kind: 'optional', when: () => true, why: () => '보험료 절감이 필요할 때' }
       ],
@@ -154,7 +154,7 @@
       main: '판매·제조한 제품으로 타인이 입은 손해 배상 (보험기간 중 최초 손해배상청구 기준, 소급보상일자 적용)',
       limits: ['대인·대물 사고당 보상한도 협의'],
       riders: [
-        { name: '농협 납품분 한정특약', kind: 'recommended', when: b => b.supplyNH, why: () => '농협 계통 납품 물량에 맞춰 보장' },
+        { name: '농협 납품분 한정특약', kind: 'optional', when: () => true, why: () => '농협 계통에 납품하는 경우 납품 물량에 맞춰 보장' },
         { name: '판매인 특약', kind: 'recommended', when: b => b.industry === 'RETAIL', why: () => '직접 만들지 않은 제품을 판매' },
         { name: '품질저하 부담보 특약', kind: 'optional', when: () => true, why: () => '보험료 절감이 필요할 때' }
       ],
@@ -168,6 +168,8 @@
 
   const R = (result, reason, missing) => ({ result, reason, missing: missing || [] });
   const fmtNum = n => Number(n).toLocaleString('ko-KR');
+  const PYEONG = 3.3058;
+  const fmtArea = m2 => `${fmtNum(m2)}㎡(약 ${fmtNum(Math.round(m2 / PYEONG * 10) / 10)}평)`;
   const ind = b => IND[b.industry] || {};
   const isSpecial = b => {
     if (b.isBuildingOwner !== true || !has(b.buildingArea)) return false;
@@ -191,9 +193,9 @@
         if (m === 'area') {
           if (!b.floorType || !has(b.bizArea)) return R('확인필요', '영업장 층과 면적이 있어야 판단할 수 있어요.', ['영업장 층', '영업장 면적']);
           if (b.floorType === '1') return R('비대상', '지상 1층 음식점은 다중이용업소에서 제외돼요 (재난배상책임보험 확인).');
-          if (b.floorType === 'B' && b.bizArea >= 66) return R('의무대상', `지하 영업장 ${fmtNum(b.bizArea)}㎡ ≥ 66㎡`);
-          if (b.floorType === '2' && b.bizArea >= 100) return R('의무대상', `지상 2층 이상 영업장 ${fmtNum(b.bizArea)}㎡ ≥ 100㎡`);
-          return R('비대상', `영업장 면적 ${fmtNum(b.bizArea)}㎡로 기준 미만입니다.`);
+          if (b.floorType === 'B' && b.bizArea >= 66) return R('의무대상', `지하 영업장 ${fmtArea(b.bizArea)} ≥ 66㎡`);
+          if (b.floorType === '2' && b.bizArea >= 100) return R('의무대상', `지상 2층 이상 영업장 ${fmtArea(b.bizArea)} ≥ 100㎡`);
+          return R('비대상', `영업장 면적 ${fmtArea(b.bizArea)}로 기준 미만입니다.`);
         }
         const need = m === 'capacity300' ? 300 : 100;
         if (!has(b.capacity)) return R('확인필요', `수용인원 ${need}명 이상이면 의무 대상이에요.`, ['수용인원']);
@@ -207,14 +209,14 @@
       evaluate(b) {
         if (['FOOD', 'CAFE'].includes(b.industry)) {
           if (!b.floorType || !has(b.bizArea)) return R('확인필요', '영업장 층과 면적이 있어야 판단할 수 있어요.', ['영업장 층', '영업장 면적']);
-          if (b.floorType === '1' && b.bizArea >= 100) return R('의무대상', `1층 음식점, 바닥면적 ${fmtNum(b.bizArea)}㎡ ≥ 100㎡`);
-          return R('비대상', b.floorType === '1' ? `1층 바닥면적 ${fmtNum(b.bizArea)}㎡로 100㎡ 미만입니다.` : '1층이 아닌 음식점은 다중이용업소 화재배상책임보험으로 확인해요.');
+          if (b.floorType === '1' && b.bizArea >= 100) return R('의무대상', `1층 음식점, 바닥면적 ${fmtArea(b.bizArea)} ≥ 100㎡`);
+          return R('비대상', b.floorType === '1' ? `1층 바닥면적 ${fmtArea(b.bizArea)}로 100㎡ 미만입니다.` : '1층이 아닌 음식점은 다중이용업소 화재배상책임보험으로 확인해요.');
         }
         if (b.industry === 'LODGING') return R('의무대상', '숙박업은 재난취약시설입니다.');
         if (b.industry === 'GAS_STATION') return R('의무대상', '주유소는 재난취약시설입니다.');
         if (b.industry === 'WAREHOUSE') {
           if (!has(b.buildingArea)) return R('확인필요', '창고 연면적 1,000㎡ 이상이면 의무 대상이에요.', ['건물 연면적']);
-          return b.buildingArea >= 1000 ? R('의무대상', `물류창고 연면적 ${fmtNum(b.buildingArea)}㎡ ≥ 1,000㎡`) : R('비대상', '연면적 1,000㎡ 미만 창고입니다.');
+          return b.buildingArea >= 1000 ? R('의무대상', `물류창고 연면적 ${fmtArea(b.buildingArea)} ≥ 1,000㎡`) : R('비대상', '연면적 1,000㎡ 미만 창고입니다.');
         }
         if ((b.otherFacilities || []).length) return R('확인필요', `사업장 내 ${b.otherFacilities.join(', ')} — 재난취약시설 해당 여부를 확인하세요.`);
         return R('비대상', '재난배상책임보험 의무 대상 시설이 아닙니다.');
@@ -227,8 +229,8 @@
       evaluate(b) {
         if (b.isBuildingOwner === false) return R('비대상', '건물을 임차해 사용 중이라 가입 의무자(건물 소유자)가 아닙니다.');
         if (!has(b.isBuildingOwner) || !has(b.buildingArea)) return R('확인필요', '건물 소유 여부와 연면적이 필요해요.', ['건물 소유', '건물 연면적']);
-        if (isSpecial(b)) return R('의무대상', `자가 소유 건물, 연면적 ${fmtNum(b.buildingArea)}㎡${(b.buildingFloors || 0) >= 11 ? `, ${b.buildingFloors}층` : ''} — 특수건물 기준 해당`);
-        return R('비대상', `연면적 ${fmtNum(b.buildingArea)}㎡로 업종별 특수건물 기준 미만입니다.`);
+        if (isSpecial(b)) return R('의무대상', `자가 소유 건물, 연면적 ${fmtArea(b.buildingArea)}${(b.buildingFloors || 0) >= 11 ? `, ${b.buildingFloors}층` : ''} — 특수건물 기준 해당`);
+        return R('비대상', `연면적 ${fmtArea(b.buildingArea)}로 업종별 특수건물 기준 미만입니다.`);
       }
     },
     {
@@ -322,7 +324,7 @@
       code: 'REC_PL', kind: 'recommended', name: '음식물·생산물 배상책임', law: '의무 아님', products: ['PL_1', 'PL_2'], verified: true,
       evaluate(b) {
         if (['FOOD', 'CAFE'].includes(b.industry)) return R('권장', '식중독·이물질 사고로 손님이 입은 피해 배상');
-        if (b.industry === 'MFG') return R('권장', b.supplyNH ? '농협 계통 납품 중 — 「농협 납품분 한정특약」 검토' : `${b.mainProducts || '생산품'}으로 인한 제3자 피해 대비`);
+        if (b.industry === 'MFG') return R('권장', `${b.mainProducts || '생산품'}으로 인한 제3자 피해 대비`);
         if (b.industry === 'RETAIL') return R('권장', '판매한 제품의 결함으로 인한 피해 배상 (판매인 특약)');
         return R('비대상', '생산·판매 제품이 없는 업종입니다.');
       }
@@ -375,6 +377,6 @@
   const RIDER_KIND = { required: '필수', recommended: '권장', optional: '선택' };
 
   const api = { BASIS_DATE, INDUSTRIES, IND, SPORTS_TYPES, FLOOR_OPTS, KSIC, KSIC_NAME, PRODUCTS, PRODUCT, RULES, RULE, STAGES, OPEN_STAGES, RIDER_KIND,
-    eligibility, analyze, design, isSpecial, fmtNum, fmtWon };
+    eligibility, analyze, design, isSpecial, fmtNum, fmtWon, fmtArea, PYEONG };
   if (typeof module !== 'undefined') module.exports = api; else root.Engine = api;
 })(this);

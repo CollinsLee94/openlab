@@ -30,7 +30,7 @@ const cases = [
   { id: 'sample08', at: '2026-10-28', cust: ['윤채원', '010-3808-7708'], biz: { bizName: '채원 네일', industry: 'BEAUTY', employees: 1, floorType: '1', bizArea: 40, isBuildingOwner: false, sido: '부산광역시', sigungu: '해운대구' },
     ans: { REC_PROPERTY_FIRE: { productId: 'GENERAL_FIRE' } },
     stages: { REC_PROPERTY_FIRE: ['추천'] } },
-  { id: 'sample09', at: '2026-11-04', cust: ['강태오', '010-3909-9909'], biz: { bizName: '태오마트', industry: 'RETAIL', employees: 3, floorType: '1', bizArea: 210, isBuildingOwner: false, records: 3200, vehicles: 1, supplyNH: true, sido: '전남광주통합특별시', sigungu: '진도군' },
+  { id: 'sample09', at: '2026-11-04', cust: ['강태오', '010-3909-9909'], biz: { bizName: '태오마트', industry: 'RETAIL', employees: 3, floorType: '1', bizArea: 210, isBuildingOwner: false, records: 3200, vehicles: 1, sido: '전남광주통합특별시', sigungu: '진도군' },
     ans: { AUTO_LIAB: { status: '가입', insurer: 'NH농협손해보험', expiry: '2027-08-17' }, REC_PROPERTY_FIRE: { productId: 'GENERAL_FIRE' }, REC_PL: { productId: 'PL_1' } },
     stages: { REC_PROPERTY_FIRE: ['설명완료'], REC_PL: ['추천'] } },
   { id: 'sample10', at: '2026-11-09', cust: ['송지아', '010-4010-1210'], biz: { bizName: '구름 키즈카페', industry: 'KIDS', employees: 3, floorType: '2', bizArea: 330, isBuildingOwner: false, hasElevator: true, elevatorManager: false, sido: '대구광역시', sigungu: '수성구' },

@@ -32,7 +32,7 @@
 
   const state = {
     me: null, consults: [], dbMode: 'loading', sb: null, canWrite: true, authReady: false,
-    draft: null, step: 1, trackFilter: { q: '', stage: '', ind: '', product: '' }, cardFilter: { q: '', mode: 'all' }, confirmArchive: null,
+    draft: null, step: 1, trackFilter: { q: '', stage: '', ind: '', product: '' }, cardFilter: { q: '', mode: 'all' }, confirmArchive: null, areaUnit: (() => { try { return localStorage.getItem('hearim_area_unit') || 'm2'; } catch (e) { return 'm2'; } })(),
     dash: { period: 'all', counselor: '' }, drawer: null
   };
 
@@ -193,7 +193,7 @@
         isBuildingOwner: null, buildingArea: null, buildingFloors: null,
         hasElevator: false, elevatorCount: null, elevatorManager: null,
         lpg: false, lpgKg: null, cityGas: false, cityGasSpecific: false, hpGasStorage: false, spHpGasUse: false,
-        hazardousChem: false, emissionFacility: false, kidsPlay: false, records: null, vehicles: 0, otherFacilities: [], supplyNH: false,
+        hazardousChem: false, emissionFacility: false, kidsPlay: false, records: null, vehicles: 0, otherFacilities: [],
         bizNo: '', corpType: '개인', sido: '', sigungu: '', addressDetail: '', address: '', mainProducts: '', industrialComplex: false, exports: false },
       answers: {}, memo: ''
     };
@@ -224,6 +224,16 @@
     const val = getPath(state.draft, path);
     return `<div class="field${cls}"><label for="${fid(path)}">${label}</label><select id="${fid(path)}" data-path="${path}"><option value="">${placeholder}</option>${opts.map(([k, t]) => `<option value="${esc(k)}" ${val === k ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
   }
+  const toUnit = m2 => m2 === null || m2 === undefined || m2 === '' ? '' : state.areaUnit === 'py' ? Math.round(m2 / E.PYEONG * 10) / 10 : m2;
+  const areaHint = m2 => m2 === null || m2 === undefined || m2 === '' ? '' : state.areaUnit === 'py' ? `= ${E.fmtNum(m2)}㎡` : `= 약 ${E.fmtNum(Math.round(m2 / E.PYEONG * 10) / 10)}평`;
+  function areaInp(path, label, cls = '') {
+    const m2 = getPath(state.draft, path);
+    const u = state.areaUnit === 'py' ? '평' : '㎡';
+    const lab = label.includes('<b class="req"') ? label.replace(' <b class="req"', ` (${u}) <b class="req"`) : `${label} (${u})`;
+    return `<div class="field${cls}"><label for="${fid(path)}">${lab}</label>
+      <div class="area-in"><input id="${fid(path)}" data-area="${path}" type="number" min="0" step="any" value="${esc(toUnit(m2))}"><span class="area-hint" id="${fid(path)}_hint">${esc(areaHint(m2))}</span></div></div>`;
+  }
+  const unitToggle = () => `<span class="unit-toggle" role="group" aria-label="면적 단위">${[['m2', '㎡'], ['py', '평']].map(([k, t]) => `<button type="button" class="seg sm ${state.areaUnit === k ? 'on' : ''}" data-unit="${k}">${t}</button>`).join('')}</span>`;
   function getPath(o, p) { return p.split('.').reduce((a, k) => a == null ? a : a[k], o); }
   function setPath(o, p, val) { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = val; }
 
@@ -268,11 +278,11 @@
         ${b.industry === 'MFG' ? `<div class="grid2">${sel('biz.ksic', '제조 품목 <span class="opt">(선택 · 특약 추천에 사용)</span>', E.KSIC.map(([c, n]) => [c, `${n} (${c})`]))}</div>` : ''}
         <div class="grid2">${inp('biz.employees', '상시근로자 수 (대표 제외)' + (b.smeType === '소상공인' ? '' : REQ), 'number', 'min="0" placeholder="0"', bad('biz.employees'))}${sel('biz.smeType', '소상공인 확인서 <span class="opt">(선택)</span>', [['소상공인', '소상공인 확인서 있음'], ['없음/모름', '없음/모름'], ['중기업 이상', '중기업 이상']])}</div>
 
-        <h3 class="grp">영업장 ${USE('다중이용업소 화재배상·재난배상')}</h3>
-        <div class="grid3">${sel('biz.floorType', '영업장 층' + (needsFloor(b) ? REQ : ''), E.FLOOR_OPTS, bad('biz.floorType'))}${inp('biz.bizArea', '영업장 면적 (㎡)' + (needsFloor(b) ? REQ : ''), 'number', 'min="0"', bad('biz.bizArea'))}${needsCapacity(b) ? inp('biz.capacity', '수용인원 (명)', 'number', 'min="0"') : ''}</div>
+        <h3 class="grp">영업장 ${USE('다중이용업소 화재배상·재난배상')} ${unitToggle()}</h3>
+        <div class="grid3">${sel('biz.floorType', '영업장 층' + (needsFloor(b) ? REQ : ''), E.FLOOR_OPTS, bad('biz.floorType'))}${areaInp('biz.bizArea', '영업장 면적' + (needsFloor(b) ? REQ : ''), bad('biz.bizArea'))}${needsCapacity(b) ? inp('biz.capacity', '수용인원 (명)', 'number', 'min="0"') : ''}</div>
 
         <h3 class="grp">건물 <i class="tip" data-tip="건축물대장에서 소유자·연면적·층수를 확인할 수 있어요.">?</i> ${USE('특수건물 화재보험')}</h3>
-        <div class="grid3">${tri('biz.isBuildingOwner', '건물 소유' + REQ, '자가 소유', '임차', bad('biz.isBuildingOwner'))}${b.isBuildingOwner === true || b.industry === 'WAREHOUSE' ? inp('biz.buildingArea', '건물 연면적 (㎡)' + REQ, 'number', 'min="0"', bad('biz.buildingArea')) + inp('biz.buildingFloors', '건물 층수', 'number', 'min="1"') : ''}</div>
+        <div class="grid3">${tri('biz.isBuildingOwner', '건물 소유' + REQ, '자가 소유', '임차', bad('biz.isBuildingOwner'))}${b.isBuildingOwner === true || b.industry === 'WAREHOUSE' ? areaInp('biz.buildingArea', '건물 연면적' + REQ, bad('biz.buildingArea')) + inp('biz.buildingFloors', '건물 층수', 'number', 'min="1"') : ''}</div>
 
         <h3 class="grp">승강기 <i class="tip" data-tip="승강기 안전인증·정기검사 필증에서 관리주체를 확인하세요.">?</i> ${USE('승강기사고배상책임')}</h3>
         <div class="row-checks">${chk('biz.hasElevator', '승강기 있음 (화물용·에스컬레이터 포함)')}</div>
@@ -286,7 +296,6 @@
         <div class="row-checks">${b.industry !== 'KIDS' ? chk('biz.kidsPlay', '어린이 놀이공간·놀이기구 운영') : ''}${chk('biz.hazardousChem', '유해화학물질 취급')}${chk('biz.emissionFacility', '대기·수질 배출시설')}</div>
         ${b.industry === 'MFG' ? `<fieldset class="field"><legend>사업장 내 별도 시설</legend><div class="row-checks">${FACILITY_OPTS.map((o, i) => `<label class="check" for="fac${i}"><input id="fac${i}" type="checkbox" data-fac="${esc(o)}" ${b.otherFacilities.includes(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}</div></fieldset>` : ''}
         <div class="grid2">${inp('biz.records', '보유 고객 개인정보 (건)', 'number', 'min="0" placeholder="모르면 비워 두세요"')}${inp('biz.vehicles', '업무용 차량·오토바이 (대)', 'number', 'min="0"')}</div>
-        ${['MFG', 'RETAIL', 'FOOD', 'CAFE'].includes(b.industry) ? `<div class="row-checks">${chk('biz.supplyNH', '농협 계통 납품')}</div>` : ''}
 
         <details class="optional" ${state.optOpen ? 'open' : ''} id="optDetails">
           <summary>추가 정보 <span class="opt">(선택 · 보장분석 결과에는 영향 없음)</span></summary>
@@ -405,6 +414,15 @@
         if (structural) render(); else if ($('#preview')) $('#preview').innerHTML = previewPanel();
       });
     });
+    document.querySelectorAll('[data-area]').forEach(el => el.addEventListener('input', () => {
+      const n = el.value === '' ? null : Number(el.value);
+      const m2 = n === null || isNaN(n) ? null : state.areaUnit === 'py' ? Math.round(n * E.PYEONG * 100) / 100 : n;
+      setPath(d, el.dataset.area, m2);
+      Object.values(d.answers).forEach(x => { delete x.design; });
+      const h = document.getElementById(el.id + '_hint'); if (h) h.textContent = areaHint(m2);
+      if ($('#preview')) $('#preview').innerHTML = previewPanel();
+    }));
+    document.querySelectorAll('[data-unit]').forEach(btn => btn.addEventListener('click', () => { state.areaUnit = btn.dataset.unit; try { localStorage.setItem('hearim_area_unit', state.areaUnit); } catch (e) { } render(); }));
     document.querySelectorAll('[data-fac]').forEach(el => el.addEventListener('change', () => {
       const f = d.biz.otherFacilities; const o = el.dataset.fac;
       d.biz.otherFacilities = el.checked ? [...new Set([...f, o])] : f.filter(x => x !== o);
@@ -612,7 +630,7 @@
       ${e.design ? `<section class="design dz"><span class="d-lbl">메인 보장</span><p>${esc(e.design.main)}</p>${(e.design.limits || []).length ? `<ul class="limits">${e.design.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
         <span class="d-lbl">포함 특약 ${e.design.riders.length}개</span>${e.design.riders.length ? `<ul class="rlist">${e.design.riders.map(r => `<li><span class="rk ${r.kind}">${E.RIDER_KIND[r.kind]}</span>${esc(r.name)}</li>`).join('')}</ul>` : '<p class="muted small">특약 없음</p>'}</section>` : ''}
       <section class="grid2 small"><div><dt>업종</dt><dd>${esc(E.IND[c.biz.industry]?.name || '-')}</dd></div><div><dt>소상공인</dt><dd>${badge(c.eligibility?.status || '-')}</dd></div>
-        <div><dt>건물</dt><dd>${c.biz.isBuildingOwner ? '자가' : c.biz.isBuildingOwner === false ? '임차' : '-'}${c.biz.bizArea ? ` · 영업장 ${E.fmtNum(c.biz.bizArea)}㎡` : ''}</dd></div><div><dt>소재지</dt><dd>${esc(c.biz.address || '-')}</dd></div></section>
+        <div><dt>건물</dt><dd>${c.biz.isBuildingOwner ? '자가' : c.biz.isBuildingOwner === false ? '임차' : '-'}${c.biz.bizArea ? ` · 영업장 ${E.fmtArea(c.biz.bizArea)}` : ''}</dd></div><div><dt>소재지</dt><dd>${esc(c.biz.address || '-')}</dd></div></section>
       ${mine ? `<section><h3>단계 변경</h3>
         <div class="field"><label for="dstage">다음 단계</label><select id="dstage">${E.STAGES.map(s => `<option ${to === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
         ${needCheck ? `<div class="checklist"><p><b>설명 의무사항</b>을 모두 확인해야 저장할 수 있어요.</p>${p.checklist.map((t, i) => `<label class="check" for="ck${i}"><input id="ck${i}" type="checkbox" data-ck="${i}" ${dr.checks[i] ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>` : ''}

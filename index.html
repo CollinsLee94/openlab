@@ -90,6 +90,12 @@ a { color: var(--accent); }
 /* 폼 */
 .opt { font-weight: 400; color: var(--muted); }
 .req { color: var(--crit); font-weight: 700; }
+.area-in { display: flex; align-items: center; gap: 8px; }
+.area-in input { flex: 1; min-width: 0; }
+.area-hint { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.unit-toggle { display: inline-flex; gap: 4px; margin-left: auto; }
+.seg.sm { padding: 2px 10px; font-size: 13px; background: var(--surface); font-family: inherit; }
+.unit-toggle .seg.on { background: var(--accent); color: var(--accent-ink); }
 .form-intro p { margin: 4px 0 0; font-size: 13px; }
 .form h2.first { border: 0; margin: 0; padding: 0; }
 .form h3.grp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
