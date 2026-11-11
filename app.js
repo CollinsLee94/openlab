@@ -29,6 +29,9 @@
   let ACCOUNTS = [];
   let ACC = {};
   const CFG = window.HEARIM_CONFIG || {};
+  const LOGO_SRC = ['brand/nh-logo.png', 'https://www.nhfire.co.kr/images/common/top_logo_350.png'];
+  const logo = (cls = '') => `<span class="logo ${cls}" role="img" aria-label="NH농협손해보험"><img src="${LOGO_SRC[0]}" alt="" data-try="0" onerror="window.__logoFallback(this)"><b class="logo-txt" hidden>NH농협손해보험</b></span>`;
+  window.__logoFallback = img => { const i = Number(img.dataset.try) + 1; if (i < LOGO_SRC.length) { img.dataset.try = i; img.src = LOGO_SRC[i]; } else { img.hidden = true; img.nextElementSibling.hidden = false; } };
 
   const state = {
     me: null, consults: [], dbMode: 'loading', sb: null, canWrite: true, authReady: false,
@@ -147,7 +150,7 @@
     const tabs = [['customers', '고객 카드'], ['consult', '새 상담'], ['tracking', '가입 트래킹'], ['dashboard', '실적 대시보드']];
     if (state.me.role === 'manager') tabs.push(['admin', '규칙·상품']);
     return `<header class="topbar">
-      <div class="brand"><span class="mark" aria-hidden="true">헤</span><div><b>소상공인 보험 헤아림</b><small>상담사 콘솔 · 소상공인</small></div></div>
+      <a class="brand" href="#customers">${logo()}<span class="divider" aria-hidden="true"></span><b class="svc">소상공인 보험 헤아림</b></a>
       <nav class="tabs" aria-label="메뉴">${tabs.map(([k, l]) => `<a href="#${k}" class="tab ${r === k ? 'on' : ''}">${l}</a>`).join('')}</nav>
       <div class="who"><span>${esc(state.me.name)} <small>${esc(state.me.branch)}</small></span><button class="btn ghost sm" id="logout">로그아웃</button></div>
     </header>`;
@@ -155,12 +158,12 @@
 
   /* ---------- 로그인 ---------- */
   function setupView() {
-    return `<div class="login-wrap"><div class="login card"><div class="brand lg"><span class="mark" aria-hidden="true">헤</span><div><b>소상공인 보험 헤아림</b><small>설정이 필요해요</small></div></div>
+    return `<div class="login-wrap"><div class="login card"><div class="login-brand">${logo('lg')}<h1>소상공인 보험 헤아림</h1><p>설정이 필요해요</p></div>
       <p><code>config.js</code>에 Supabase Project URL과 anon key를 입력한 뒤 다시 배포하세요. README의 2단계를 참고하세요.</p></div></div>`;
   }
   function loginView() {
     return `<div class="login-wrap"><form class="login card" id="loginForm">
-      <div class="brand lg"><span class="mark" aria-hidden="true">헤</span><div><b>소상공인 보험 헤아림</b><small>소상공인 의무보험 보장분석 · 상담사 콘솔</small></div></div>
+      <div class="login-brand">${logo('lg')}<h1>소상공인 보험 헤아림</h1><p>소상공인 의무보험 보장분석 · 상담사 콘솔</p></div>
       <label for="email">이메일</label>
       <input id="email" type="email" autocomplete="username" placeholder="name@example.com">
       <label for="pw">비밀번호</label>
