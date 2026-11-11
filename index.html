@@ -89,6 +89,17 @@ a { color: var(--accent); }
 
 /* 폼 */
 .opt { font-weight: 400; color: var(--muted); }
+.req { color: var(--crit); font-weight: 700; }
+.form-intro p { margin: 4px 0 0; font-size: 13px; }
+.form h2.first { border: 0; margin: 0; padding: 0; }
+.form h3.grp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.use { font-size: 12px; font-weight: 500; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 999px; }
+.field.invalid input, .field.invalid select { border-color: var(--crit); box-shadow: 0 0 0 3px var(--crit-soft); }
+.field.invalid label { color: var(--crit); }
+.optional { border: 1px dashed var(--line); border-radius: 8px; padding: 10px 14px; margin-top: 6px; }
+.optional summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.opt-body { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+
 label, .lbl, legend { font-size: 13px; font-weight: 600; color: var(--muted); }
 input, select, textarea { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }

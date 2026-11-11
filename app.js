@@ -229,41 +229,75 @@
       <div class="actions"><span></span><button class="btn primary" id="next1">다음: 사업장 정보</button></div>
     </section>`;
   }
+  const REQ = ' <b class="req" aria-label="필수">*</b>';
+  const USE = t => `<span class="use">판정: ${t}</span>`;
+  const REQUIRED_FIELDS = [
+    ['biz.bizName', '상호'], ['biz.ksic', '주된 업종'], ['biz.isMainBusiness', '제조업 주된 사업 여부'], ['biz.smeType', '중소기업확인서 구분'],
+    ['biz.isBuildingOwner', '건물 소유'], ['biz.buildingArea', '건물 연면적']
+  ];
+  function missingRequired(b) {
+    const miss = REQUIRED_FIELDS.filter(([p]) => { const v = getPath(state.draft, p); return v === null || v === undefined || v === ''; });
+    if (b.hasElevator && (b.elevatorManager === null || b.elevatorManager === undefined)) miss.push(['biz.elevatorManager', '승강기 관리주체 여부']);
+    return miss;
+  }
   function step2() {
     const b = state.draft.biz;
+    const miss = new Set((state.showMissing ? missingRequired(b) : []).map(([p]) => p));
+    const bad = p => miss.has(p) ? ' invalid' : '';
+    const lab = (p, t) => `${t}${REQ}`;
     return `<div class="split">
       <section class="card form">
-        <h2>기본</h2>
-        <div class="grid3">${inp('biz.bizName', '상호')}${inp('biz.bizNo', '사업자등록번호', 'text', 'placeholder="000-00-00000"')}
-          <div class="field"><label for="f_biz_corpType">사업자 구분</label><select id="f_biz_corpType" data-path="biz.corpType">${['법인', '개인'].map(o => `<option ${b.corpType === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div></div>
-        <div class="grid3">
-          <div class="field"><label for="f_biz_sido">사업장 시·도</label><select id="f_biz_sido" data-path="biz.sido"><option value="">선택</option>${Object.keys(window.REGIONS).map(s => `<option ${b.sido === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
-          <div class="field"><label for="f_biz_sigungu">시·군·구</label><select id="f_biz_sigungu" data-path="biz.sigungu" ${b.sido ? '' : 'disabled'}><option value="">${b.sido ? '선택' : '시·도를 먼저 선택'}</option>${(window.REGIONS[b.sido] || []).map(g => `<option ${b.sigungu === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
-          ${inp('biz.addressDetail', '상세 주소 <span class="opt">(선택)</span>', 'text', 'placeholder="읍·면·동, 도로명, 번지"')}
+        <div class="form-intro"><h2 class="first">보장분석에 필요한 정보</h2><p class="muted"><b class="req">*</b> 표시는 필수예요. 체크 항목은 해당할 때만 체크하세요.</p></div>
+
+        <h3 class="grp">고객 식별·대상 확인 ${USE('제조업 소기업 적격성')}</h3>
+        <div class="grid2">
+          <div class="field${bad('biz.bizName')}">${inp('biz.bizName', lab('biz.bizName', '상호'), 'text', 'placeholder="가입 트래킹 목록에 표시돼요"').replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>
+          <div class="field${bad('biz.ksic')}"><label for="f_biz_ksic">주된 업종 (KSIC 중분류)${REQ}</label><select id="f_biz_ksic" data-path="biz.ksic"><option value="">선택</option>${E.KSIC.map(([c, n]) => `<option value="${c}" ${b.ksic === c ? 'selected' : ''}>${c} ${esc(n)}</option>`).join('')}<option value="X" ${b.ksic === 'X' ? 'selected' : ''}>제조업 외 업종</option></select></div>
         </div>
-        <div class="grid2">${inp('biz.mainProducts', '주요 생산품', 'text', 'placeholder="예: 김치, 알루미늄 브래킷"')}</div>
-        <div class="grid3">
-          <div class="field"><label for="f_biz_ksic">주된 업종 (KSIC 중분류)</label><select id="f_biz_ksic" data-path="biz.ksic"><option value="">선택</option>${E.KSIC.map(([c, n]) => `<option value="${c}" ${b.ksic === c ? 'selected' : ''}>${c} ${esc(n)}</option>`).join('')}<option value="X" ${b.ksic === 'X' ? 'selected' : ''}>제조업 외 업종</option></select></div>
-          ${tri('biz.isMainBusiness', '제조업이 주된 사업인가요? <i class="tip" data-tip="여러 업종을 함께 하면 평균매출액 비중이 가장 큰 업종이 주된 업종이에요.">?</i>')}
-          <div class="field"><label for="f_biz_smeType">중소기업확인서 구분</label><select id="f_biz_smeType" data-path="biz.smeType">${['', '소기업', '소상공인', '중기업', '없음/모름'].map(o => `<option value="${o}" ${b.smeType === o ? 'selected' : ''}>${o || '선택'}</option>`).join('')}</select></div></div>
-        <div class="grid3">${inp('biz.employees', '상시근로자 수', 'number', 'min="0"')}</div>
+        <div class="grid2">
+          <div class="field${bad('biz.isMainBusiness')}">${tri('biz.isMainBusiness', '제조업이 주된 사업인가요?' + REQ + ' <i class="tip" data-tip="여러 업종을 함께 하면 평균매출액 비중이 가장 큰 업종이 주된 업종이에요.">?</i>').replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>
+          <div class="field${bad('biz.smeType')}"><label for="f_biz_smeType">중소기업확인서 구분${REQ}</label><select id="f_biz_smeType" data-path="biz.smeType">${['', '소기업', '소상공인', '중기업', '없음/모름'].map(o => `<option value="${o}" ${b.smeType === o ? 'selected' : ''}>${o || '선택'}</option>`).join('')}</select></div>
+        </div>
 
-        <h2>건물 <i class="tip" data-tip="건축물대장에서 소유자·연면적·층수를 확인할 수 있어요.">?</i></h2>
-        <div class="grid3">${tri('biz.isBuildingOwner', '건물 소유', '자가 소유', '임차')}${inp('biz.buildingArea', '건물 연면적 (㎡)', 'number', 'min="0"')}${inp('biz.buildingFloors', '층수', 'number', 'min="1"')}</div>
-        <div class="row-checks">${chk('biz.industrialComplex', '산업단지 입주')}</div>
+        <h3 class="grp">건물 <i class="tip" data-tip="건축물대장에서 소유자·연면적을 확인할 수 있어요.">?</i> ${USE('특수건물 화재보험')}</h3>
+        <div class="grid2">
+          <div class="field${bad('biz.isBuildingOwner')}">${tri('biz.isBuildingOwner', '건물 소유' + REQ, '자가 소유', '임차').replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>
+          <div class="field${bad('biz.buildingArea')}">${inp('biz.buildingArea', '건물 연면적 (㎡)' + REQ, 'number', 'min="0"').replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>
+        </div>
 
-        <h2>승강기 <i class="tip" data-tip="승강기 안전인증·정기검사 필증에서 관리주체를 확인하세요.">?</i></h2>
+        <h3 class="grp">승강기 <i class="tip" data-tip="승강기 안전인증·정기검사 필증에서 관리주체를 확인하세요.">?</i> ${USE('승강기사고배상책임')}</h3>
         <div class="row-checks">${chk('biz.hasElevator', '승강기 있음 (화물용 포함)')}</div>
-        ${b.hasElevator ? `<div class="grid3">${inp('biz.elevatorCount', '대수', 'number', 'min="1"')}${tri('biz.elevatorManager', '고객이 관리주체인가요?')}</div>` : ''}
+        ${b.hasElevator ? `<div class="grid2"><div class="field${bad('biz.elevatorManager')}">${tri('biz.elevatorManager', '고객이 관리주체인가요?' + REQ).replace('<div class="field">', '').replace(/<\/div>$/, '')}</div>${inp('biz.elevatorCount', '대수', 'number', 'min="1"')}</div>` : ''}
 
-        <h2>가스 <i class="tip" data-tip="가스 사용시설 완성검사증명서·사용신고서로 확인하세요.">?</i></h2>
+        <h3 class="grp">가스 <i class="tip" data-tip="가스 사용시설 완성검사증명서·사용신고서로 확인하세요.">?</i> ${USE('가스사고배상책임')}</h3>
         <div class="row-checks">${chk('biz.lpg', 'LPG 사용')}${chk('biz.cityGas', '도시가스 사용')}${chk('biz.hpGasStorage', '고압가스 저장 허가')}${chk('biz.spHpGasUse', '특정고압가스 사용신고')}</div>
-        <div class="grid3">${b.lpg ? inp('biz.lpgKg', 'LPG 저장능력 (kg)', 'number', 'min="0"') : ''}${b.cityGas ? `<div class="field"><span class="lbl">도시가스</span>${chk('biz.cityGasSpecific', '특정가스사용시설 해당')}</div>` : ''}</div>
+        ${b.lpg || b.cityGas ? `<div class="grid2">${b.lpg ? inp('biz.lpgKg', 'LPG 저장능력 (kg)', 'number', 'min="0"') : ''}${b.cityGas ? `<div class="field"><span class="lbl">도시가스</span>${chk('biz.cityGasSpecific', '특정가스사용시설 해당')}</div>` : ''}</div>` : ''}
 
-        <h2>환경·기타</h2>
-        <div class="row-checks">${chk('biz.hazardousChem', '유해화학물질 취급')}${chk('biz.emissionFacility', '대기·수질 배출시설')}${chk('biz.supplyNH', '농협 계통 납품')}${chk('biz.exports', '수출')}</div>
-        <div class="grid3">${inp('biz.records', '보유 고객 개인정보 (건)', 'number', 'min="0"')}${inp('biz.vehicles', '업무용 차량 (대)', 'number', 'min="0"')}</div>
+        <h3 class="grp">환경 ${USE('환경책임보험')}</h3>
+        <div class="row-checks">${chk('biz.hazardousChem', '유해화학물질 취급')}${chk('biz.emissionFacility', '대기·수질 배출시설')}</div>
+
+        <h3 class="grp">기타 시설·자산 ${USE('재난배상·개인정보·자동차 책임보험')}</h3>
         <fieldset class="field"><legend>사업장 내 별도 시설</legend><div class="row-checks">${FACILITY_OPTS.map((o, i) => `<label class="check" for="fac${i}"><input id="fac${i}" type="checkbox" data-fac="${esc(o)}" ${b.otherFacilities.includes(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}</div></fieldset>
+        <div class="grid2">${inp('biz.records', '보유 고객 개인정보 (건)', 'number', 'min="0" placeholder="모르면 비워 두세요"')}${inp('biz.vehicles', '업무용 차량 (대)', 'number', 'min="0"')}</div>
+
+        <h3 class="grp">권장 보험 ${USE('생산물배상책임 특약')}</h3>
+        <div class="row-checks">${chk('biz.supplyNH', '농협 계통 납품')}</div>
+
+        <details class="optional" ${state.optOpen ? 'open' : ''} id="optDetails">
+          <summary>추가 정보 <span class="opt">(선택 · 보장분석 결과에는 영향 없음)</span></summary>
+          <div class="opt-body">
+            <div class="grid2">${inp('biz.bizNo', '사업자등록번호', 'text', 'placeholder="000-00-00000"')}
+              <div class="field"><label for="f_biz_corpType">사업자 구분</label><select id="f_biz_corpType" data-path="biz.corpType">${['법인', '개인'].map(o => `<option ${b.corpType === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div></div>
+            <div class="grid3">
+              <div class="field"><label for="f_biz_sido">사업장 시·도</label><select id="f_biz_sido" data-path="biz.sido"><option value="">선택</option>${Object.keys(window.REGIONS).map(s => `<option ${b.sido === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+              <div class="field"><label for="f_biz_sigungu">시·군·구</label><select id="f_biz_sigungu" data-path="biz.sigungu" ${b.sido ? '' : 'disabled'}><option value="">${b.sido ? '선택' : '시·도를 먼저 선택'}</option>${(window.REGIONS[b.sido] || []).map(g => `<option ${b.sigungu === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
+              ${inp('biz.addressDetail', '상세 주소', 'text', 'placeholder="읍·면·동, 도로명, 번지"')}
+            </div>
+            <div class="grid3">${inp('biz.mainProducts', '주요 생산품', 'text', 'placeholder="예: 김치, 알루미늄 브래킷"')}${inp('biz.employees', '상시근로자 수', 'number', 'min="0"')}${inp('biz.buildingFloors', '건물 층수', 'number', 'min="1"')}</div>
+            <div class="row-checks">${chk('biz.industrialComplex', '산업단지 입주')}${chk('biz.exports', '수출')}</div>
+          </div>
+        </details>
+        <p class="err" id="stepErr" role="alert">${state.showMissing && miss.size ? '필수 항목을 입력하세요: ' + missingRequired(b).map(([, n]) => n).join(', ') : ''}</p>
         <div class="actions"><button class="btn ghost" id="prev2">이전</button><button class="btn primary" id="next2">보장분석 실행</button></div>
       </section>
       <aside class="card preview" id="preview">${previewPanel()}</aside>
@@ -351,7 +385,7 @@
         setPath(d, el.dataset.path, val);
         if (el.dataset.path === 'biz.sido') d.biz.sigungu = '';
         if (['biz.sido', 'biz.sigungu', 'biz.addressDetail'].includes(el.dataset.path)) d.biz.address = [d.biz.sido, d.biz.sigungu === d.biz.sido ? '' : d.biz.sigungu, d.biz.addressDetail].filter(Boolean).join(' ');
-        const structural = ['biz.hasElevator', 'biz.lpg', 'biz.cityGas', 'biz.sido'].includes(el.dataset.path);
+        const structural = ['biz.hasElevator', 'biz.lpg', 'biz.cityGas', 'biz.sido'].includes(el.dataset.path) || (state.showMissing && el.tagName === 'SELECT');
         if (structural) render(); else if ($('#preview')) $('#preview').innerHTML = previewPanel();
       });
     });
@@ -369,6 +403,7 @@
     document.querySelectorAll('[data-rec]').forEach(el => el.addEventListener('change', () => {
       const k = el.dataset.rec; d.answers[k] = { ...(d.answers[k] || {}), productId: el.value || null }; render();
     }));
+    const od = $('#optDetails'); if (od) od.addEventListener('toggle', () => { state.optOpen = od.open; });
     const memo = $('#memo'); if (memo) memo.addEventListener('input', () => { d.memo = memo.value; });
     const on = (id, fn) => { const el = $('#' + id); if (el) el.addEventListener('click', fn); };
     on('next1', () => {
@@ -380,9 +415,8 @@
     });
     on('prev2', () => { state.step = 1; render(); });
     on('next2', () => {
-      if (!d.biz.bizName || !d.biz.ksic) { toast('상호와 주된 업종을 입력하세요.'); return; }
-      if (!d.biz.sido || !d.biz.sigungu) { toast('사업장 시·도와 시·군·구를 선택하세요.'); return; }
-      state.step = 3; render(); window.scrollTo(0, 0);
+      if (missingRequired(d.biz).length) { state.showMissing = true; render(); const f = document.querySelector('.field.invalid'); if (f) f.scrollIntoView({ block: 'center' }); return; }
+      state.showMissing = false; state.step = 3; render(); window.scrollTo(0, 0);
     });
     on('prev3', () => { state.step = 2; render(); });
     on('saveConsult', async () => {
