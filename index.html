@@ -8,19 +8,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* 업무용 콘솔: 왼쪽 정렬, 상단 탭, 요약 → 상세. 농협 계열을 연상시키는 짙은 청록 + 차분한 회청 */
+/* 업무용 콘솔: 왼쪽 정렬, 상단 탭, 요약 → 상세. 강조색은 NH농협손해보험 CI 파랑 */
 :root {
-  --bg: #f3f5f4; --surface: #ffffff; --ink: #17211f; --muted: #5d6b67; --line: #dde3e1;
-  --accent: #0d6e5f; --accent-soft: #e2f1ee; --accent-ink: #ffffff;
+  --bg: #f3f5f8; --surface: #ffffff; --ink: #161d26; --muted: #5b6673; --line: #dde3ea;
+  --accent: #0072c0; --accent-soft: #e4f0fa; --accent-ink: #ffffff;
   --good: #1f7a3f; --good-soft: #e3f3e7; --warn: #9a5b00; --warn-soft: #fbf0dc;
   --crit: #b3261e; --crit-soft: #fbe6e4; --info: #2d5b9a; --info-soft: #e5edf8;
-  --track: #e8edeb; --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --track: #e8edf2; --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #111716; --surface: #1a2220; --ink: #e6ecea; --muted: #9aa9a5; --line: #2c3633;
-    --accent: #3fb39f; --accent-soft: #173a34; --accent-ink: #0b1513;
+    --accent: #5aaeea; --accent-soft: #132d44; --accent-ink: #07131d;
     --good: #6fcf8e; --good-soft: #17301f; --warn: #f0b85a; --warn-soft: #3a2c12;
     --crit: #f08a82; --crit-soft: #3d1a18; --info: #8fb4ea; --info-soft: #1a2a40; --track: #26302d;
     color-scheme: dark;
@@ -28,7 +28,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #111716; --surface: #1a2220; --ink: #e6ecea; --muted: #9aa9a5; --line: #2c3633;
-  --accent: #3fb39f; --accent-soft: #173a34; --accent-ink: #0b1513;
+  --accent: #5aaeea; --accent-soft: #132d44; --accent-ink: #07131d;
   --good: #6fcf8e; --good-soft: #17301f; --warn: #f0b85a; --warn-soft: #3a2c12;
   --crit: #f08a82; --crit-soft: #3d1a18; --info: #8fb4ea; --info-soft: #1a2a40; --track: #26302d;
   color-scheme: dark;
@@ -280,6 +280,9 @@ small { font-size: 14px; }
 .logo img { height: 30px; width: auto; display: block; }
 .logo.lg img { height: 48px; }
 .logo-txt { font-size: 18px; color: var(--accent); }
+.logo-txt[hidden], .logo img[hidden] { display: none !important; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo img { background: #fff; padding: 5px 8px; border-radius: 8px; box-sizing: content-box; } }
+:root[data-theme="dark"] .logo img { background: #fff; padding: 5px 8px; border-radius: 8px; box-sizing: content-box; }
 .divider { width: 1px; height: 22px; background: var(--line); }
 .svc { font-size: 17px; font-weight: 700; }
 .tab { padding: 10px 18px; font-size: 16px; border-radius: 10px; }

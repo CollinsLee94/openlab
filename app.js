@@ -29,7 +29,7 @@
   let ACCOUNTS = [];
   let ACC = {};
   const CFG = window.HEARIM_CONFIG || {};
-  const LOGO_SRC = ['brand/nh-logo.png', 'https://www.nhfire.co.kr/images/common/top_logo_350.png'];
+  const LOGO_SRC = ['brand/nh-logo.png'];
   const logo = (cls = '') => `<span class="logo ${cls}" role="img" aria-label="NH농협손해보험"><img src="${LOGO_SRC[0]}" alt="" data-try="0" onerror="window.__logoFallback(this)"><b class="logo-txt" hidden>NH농협손해보험</b></span>`;
   window.__logoFallback = img => { const i = Number(img.dataset.try) + 1; if (i < LOGO_SRC.length) { img.dataset.try = i; img.src = LOGO_SRC[i]; } else { img.hidden = true; img.nextElementSibling.hidden = false; } };
 
