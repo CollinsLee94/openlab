@@ -69,7 +69,7 @@ where id = (select id from auth.users where email = 'admin@example.com');
 ## 4-1. 샘플 상담사 계정 (시연용)
 
 1. **Authentication → Users → Add user → Create new user**
-   - Email: `sample.counselor@hearim.test`
+   - Email: `test@nhfire.co.kr`
    - Password: 원하는 비밀번호 (6자 이상)
    - **Auto Confirm User** 체크
 2. **SQL Editor**에 `supabase/sample_counselor.sql` 전체를 붙여넣고 **Run** → 마지막 결과가 `10`이면 성공

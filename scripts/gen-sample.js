@@ -2,7 +2,7 @@
    실행: node scripts/gen-sample.js */
 const E = require('../engine.js');
 const fs = require('fs');
-const EMAIL = 'sample.counselor@hearim.test';
+const EMAIL = 'test@nhfire.co.kr';
 const D = (s) => new Date(s + 'T10:00:00+09:00').toISOString();
 
 const cases = [
