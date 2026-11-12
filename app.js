@@ -196,7 +196,7 @@
         isBuildingOwner: null, buildingArea: null, buildingFloors: null,
         hasElevator: false, elevatorCount: null, elevatorManager: null,
         lpg: false, lpgKg: null, cityGas: false, cityGasSpecific: false, hpGasStorage: false, spHpGasUse: false,
-        hazardousChem: false, emissionFacility: false, kidsPlay: false, records: null, vehicles: 0, otherFacilities: [],
+        hazardousChem: false, emissionFacility: false, kidsPlay: false, droneCommercial: false, mechParking: false, evCharger: false, dangerousDog: false, medDevice: false, lightAircraft: false, distEnergy: false, records: null, vehicles: 0, otherFacilities: [],
         bizNo: '', corpType: '개인', sido: '', sigungu: '', addressDetail: '', address: '', mainProducts: '', industrialComplex: false, exports: false },
       answers: {}, memo: ''
     };
@@ -222,6 +222,10 @@
     const val = getPath(state.draft, path);
     return `<div class="field${cls}"><label for="${fid(path)}">${label}</label><select id="${fid(path)}" data-path="${path}" data-type="tri">
       <option value="" ${val === null ? 'selected' : ''}>선택</option><option value="1" ${val === true ? 'selected' : ''}>${yes}</option><option value="0" ${val === false ? 'selected' : ''}>${no}</option></select></div>`;
+  }
+  function indSel(cls = '') {
+    const val = state.draft.biz.industry; const groups = [...new Set(E.INDUSTRIES.map(i => i.group))];
+    return `<div class="field${cls}"><label for="f_biz_industry">업종${REQ}</label><select id="f_biz_industry" data-path="biz.industry"><option value="">선택</option>${groups.map(g => `<optgroup label="${esc(g)}">${E.INDUSTRIES.filter(i => i.group === g).map(i => `<option value="${i.code}" ${val === i.code ? 'selected' : ''}>${esc(i.name + (i.hint ? ` (${i.hint})` : ''))}</option>`).join('')}</optgroup>`).join('')}</select></div>`;
   }
   function sel(path, label, opts, cls = '', placeholder = '선택') {
     const val = getPath(state.draft, path);
@@ -270,13 +274,12 @@
     const b = state.draft.biz;
     const miss = new Set((state.showMissing ? missingRequired(b) : []).map(([p]) => p));
     const bad = p => miss.has(p) ? ' invalid' : '';
-    const indOpts = E.INDUSTRIES.map(i => [i.code, i.name + (i.hint ? ` (${i.hint})` : '')]);
     return `<div class="split">
       <section class="card form">
         <div class="form-intro"><h2 class="first">보장분석에 필요한 정보</h2><p class="muted"><b class="req">*</b> 표시는 필수예요. 체크 항목은 해당할 때만 체크하세요.</p></div>
 
         <h3 class="grp">업체·업종 ${USE('소상공인 여부, 업종별 의무보험')}</h3>
-        <div class="grid2">${inp('biz.bizName', '상호' + REQ, 'text', 'placeholder="가입 트래킹·고객 카드에 표시돼요"', bad('biz.bizName'))}${sel('biz.industry', '업종' + REQ, indOpts, bad('biz.industry'))}</div>
+        <div class="grid2">${inp('biz.bizName', '상호' + REQ, 'text', 'placeholder="가입 트래킹·고객 카드에 표시돼요"', bad('biz.bizName'))}${indSel(bad('biz.industry'))}</div>
         ${b.industry === 'SPORTS' ? `<div class="grid2">${sel('biz.sportsType', '체육시설 종류' + REQ, E.SPORTS_TYPES.map(([c, n]) => [c, n]), bad('biz.sportsType'))}</div>` : ''}
         ${b.industry === 'MFG' ? `<div class="grid2">${sel('biz.ksic', '제조 품목 <span class="opt">(선택 · 특약 추천에 사용)</span>', E.KSIC.map(([c, n]) => [c, `${n} (${c})`]))}</div>` : ''}
         <div class="grid2">${inp('biz.employees', '상시근로자 수 (대표 제외)' + (b.smeType === '소상공인' ? '' : REQ), 'number', 'min="0" placeholder="0"', bad('biz.employees'))}${sel('biz.smeType', '소상공인 확인서 <span class="opt">(선택)</span>', [['소상공인', '소상공인 확인서 있음'], ['없음/모름', '없음/모름'], ['중기업 이상', '중기업 이상']])}</div>
@@ -295,8 +298,9 @@
         <div class="row-checks">${chk('biz.lpg', 'LPG 사용')}${chk('biz.cityGas', '도시가스 사용')}${chk('biz.hpGasStorage', '고압가스 저장 허가')}${chk('biz.spHpGasUse', '특정고압가스 사용신고')}</div>
         ${b.lpg || b.cityGas ? `<div class="grid2">${b.lpg ? inp('biz.lpgKg', 'LPG 저장능력 (kg)', 'number', 'min="0"') : ''}${b.cityGas ? `<div class="field"><span class="lbl">도시가스</span>${chk('biz.cityGasSpecific', '특정가스사용시설 해당')}</div>` : ''}</div>` : ''}
 
-        <h3 class="grp">기타 시설·자산 ${USE('놀이시설·환경·개인정보·자동차·재난배상')}</h3>
-        <div class="row-checks">${b.industry !== 'KIDS' ? chk('biz.kidsPlay', '어린이 놀이공간·놀이기구 운영') : ''}${chk('biz.hazardousChem', '유해화학물질 취급')}${chk('biz.emissionFacility', '대기·수질 배출시설')}</div>
+        <h3 class="grp">기타 시설·자산 ${USE('놀이시설·주차장·충전시설·드론·맹견·환경 등')}</h3>
+        <div class="row-checks">${b.industry !== 'KIDS' ? chk('biz.kidsPlay', '어린이 놀이공간·놀이기구 운영') : ''}${chk('biz.mechParking', '기계식주차장 관리 (20대 이상)')}${chk('biz.evCharger', '전기차 충전시설 관리')}${b.industry !== 'DRONE' ? chk('biz.droneCommercial', '영리 목적 드론 운용') : ''}${chk('biz.dangerousDog', '맹견 사육 (도사견·핏불 등 5종)')}${chk('biz.hazardousChem', '유해화학물질 취급')}${chk('biz.emissionFacility', '대기·수질 배출시설')}</div>
+        <details class="optional rare" ${b.medDevice || b.lightAircraft || b.distEnergy ? 'open' : ''}><summary>드물게 해당 <span class="opt">(의료기기·경량항공기·분산에너지)</span></summary><div class="row-checks">${chk('biz.medDevice', '인체이식형 의료기기 제조·수입·취급')}${chk('biz.lightAircraft', '경량항공기 소유·사용')}${chk('biz.distEnergy', '분산에너지사업자 (특화지역)')}</div></details>
         ${b.industry === 'MFG' ? `<fieldset class="field"><legend>사업장 내 별도 시설</legend><div class="row-checks">${FACILITY_OPTS.map((o, i) => `<label class="check" for="fac${i}"><input id="fac${i}" type="checkbox" data-fac="${esc(o)}" ${b.otherFacilities.includes(o) ? 'checked' : ''}> ${esc(o)}</label>`).join('')}</div></fieldset>` : ''}
         <div class="grid2">${inp('biz.records', '보유 고객 개인정보 (건)', 'number', 'min="0" placeholder="모르면 비워 두세요"')}${inp('biz.vehicles', '업무용 차량·오토바이 (대)', 'number', 'min="0"')}</div>
 
