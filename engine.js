@@ -14,6 +14,7 @@
     { code: 'POSTPARTUM', name: '산후조리원', group: '다중이용업소', empLimit: 5, multiUse: 'always' },
     { code: 'BATH', name: '목욕장·찜질방', group: '다중이용업소', empLimit: 5, multiUse: 'capacity100' },
     { code: 'ACADEMY', name: '학원·교습소', hint: '보습·예체능·어학', group: '교육·문화', empLimit: 5, multiUse: 'capacity300' },
+    { code: 'SCHOOL', name: '학교·유치원 경영', hint: '사립 유치원·대안학교 등', group: '교육·문화', empLimit: 5 },
     { code: 'MUSEUM', name: '박물관·미술관·과학관', hint: '등록 시설, 도서관·전시시설 포함', group: '교육·문화', empLimit: 5 },
     { code: 'SPORTS', name: '체육시설', hint: '헬스·필라테스·골프연습장·수영장 등', group: '레저', empLimit: 5 },
     { code: 'CAMPING', name: '야영장', hint: '캠핑장·글램핑·오토캠핑', group: '레저', empLimit: 5 },
@@ -26,8 +27,11 @@
     { code: 'AD_SIGN', name: '옥외광고업', hint: '간판 제작·설치', group: '서비스', empLimit: 5 },
     { code: 'DRONE', name: '드론 사업', hint: '촬영·측량·점검', group: '서비스', empLimit: 5 },
     { code: 'PARKING', name: '주차장 운영·관리', group: '서비스', empLimit: 5 },
+    { code: 'SECURITY', name: '경비업', hint: '시설·기계경비', group: '서비스', empLimit: 5 },
     { code: 'OFFICE', name: '사무실·전문서비스', hint: '세무·디자인·IT 등', group: '서비스', empLimit: 5 },
     { code: 'OTHER', name: '기타 서비스업', group: '서비스', empLimit: 5 },
+    { code: 'CONSTRUCTION', name: '공사·인테리어·설비업', hint: '도급 공사', group: '건설·정비', empLimit: 10 },
+    { code: 'CAR_REPAIR', name: '자동차 정비·수리', hint: '카센터·공업사', group: '건설·정비', empLimit: 5 },
     { code: 'WELFARE', name: '사회복지시설', hint: '장애인·아동·정신요양 시설', group: '복지', empLimit: 5 },
     { code: 'YOUTH_WELFARE', name: '청소년복지시설', hint: '청소년 쉼터·자립지원관 등', group: '복지', empLimit: 5 },
     { code: 'RETAIL', name: '소매·편의점·판매점', group: '판매', empLimit: 5 },
@@ -61,6 +65,7 @@
   const has = v => v !== undefined && v !== null && v !== '';
   const staff = b => (b.employees || 0) > 0;
   const tenant = b => b.isBuildingOwner === false;
+  const facil = b => !['PARKING', 'CONSTRUCTION', 'SCHOOL', 'CAR_REPAIR', 'SECURITY'].includes(b.industry);
   const PRODUCTS = [
     {
       id: 'MULTI_FIRE', name: '다중이용업소화재배상책임보험', line: '특종 / 배상책임', active: true,
@@ -315,14 +320,30 @@
       main: '매장·시설의 결함이나 관리 소홀, 영업 중 사고로 손님 등 타인이 입은 신체·재산 손해의 법률상 배상금과 소송·변호사 비용 (시설소유(관리)자 특별약관 기준)',
       limits: ['보상한도액·자기부담금은 계약 시 약정 (의무보험 아님)', '보험기간 1년 원칙 (1년 미만 단기, 3년 이하 장기 가능)'],
       riders: [
-        { name: '시설소유(관리)자 특별약관', kind: 'required', when: b => b.industry !== 'PARKING', why: () => '매장·시설과 그 업무로 생긴 사고를 보상하는 기본 특약' },
+        { name: '시설소유(관리)자 특별약관', kind: 'required', when: facil, why: () => '매장·시설과 그 업무로 생긴 사고를 보상하는 기본 특약' },
         { name: '주차장 특별약관', kind: 'required', when: b => b.industry === 'PARKING', why: () => '주차시설과 주차업무 중 사고 보상 (20대 미만 기계식주차장 포함)' },
+        { name: '도급업자 특별약관', kind: 'required', when: b => b.industry === 'CONSTRUCTION', why: () => '공사 작업 수행 중 또는 작업용 시설로 생긴 사고 보상' },
+        { name: '폭발, 붕괴 및 지하매설물 손해 추가특별약관', kind: 'recommended', when: b => b.industry === 'CONSTRUCTION', why: () => '굴착·철거 공사에서 기본 특약이 빼는 폭발·붕괴·지하매설물 손해 보장' },
+        { name: '일부공사 추가특별약관', kind: 'optional', when: b => b.industry === 'CONSTRUCTION', why: () => '전체 공사 중 일부만 맡아 함께 참여한 다른 업체에 입힌 손해까지 보장' },
+        { name: '운송위험 추가특별약관(도급)', kind: 'optional', when: b => b.industry === 'CONSTRUCTION', why: () => '자재를 자기 차량으로 운반·상하역하다 생긴 적재물 사고' },
+        { name: '학교경영자 특별약관', kind: 'required', when: b => b.industry === 'SCHOOL', why: () => '학교시설과 학교 행사·교육활동 중 사고 보상' },
+        { name: '구내치료비 추가특별약관(학교)', kind: 'recommended', when: b => b.industry === 'SCHOOL', why: () => '학교 구내에서 학생이 다쳤을 때 치료비' },
+        { name: '치료비 추가특별약관', kind: 'recommended', when: b => b.industry === 'SCHOOL', why: () => '학교 관리 하의 사고로 학생이 다쳤을 때 치료비' },
+        { name: '신입생 추가특별약관', kind: 'optional', when: b => b.industry === 'SCHOOL', why: () => '입학식 전 학교 주최 행사(인솔 있는 경우) 중 신입생 사고' },
+        { name: '운동선수 확장보상 추가특별약관', kind: 'optional', when: b => b.industry === 'SCHOOL', why: () => '운동부 학생의 훈련·경기 중 부상 치료비까지 보장' },
+        { name: '차량정비업자 특별약관', kind: 'required', when: b => b.industry === 'CAR_REPAIR', why: () => '정비시설과 정비업무 중 맡은 차량·손님 사고 보상 (견인·인도 중 사고, 사용손실은 제외)' },
+        { name: '경비업자 특별약관(Ⅰ)', kind: 'required', when: b => b.industry === 'SECURITY', why: () => '경비업무 수행 중 사고 보상' },
+        { name: '업무시간보장 추가특별약관', kind: 'recommended', when: b => b.industry === 'SECURITY', why: () => '손님이 드나드는 사업장의 근무시간 중 사고 (기본 특약에서 제외)' },
+        { name: '경보·기계설비의 고장 추가특별약관', kind: 'recommended', when: b => b.industry === 'SECURITY', why: () => '기계경비 장비 고장으로 생긴 손해 (기본 특약에서 제외)' },
+        { name: '공동주택 추가특별약관', kind: 'optional', when: b => b.industry === 'SECURITY', why: () => '아파트 등 공동주택 경비 시 (단독주택 외 주택 경비는 기본 제외)' },
+        { name: '귀중품 추가특별약관', kind: 'optional', when: b => b.industry === 'SECURITY', why: () => '현금·보석·그림 등 귀중품 손해' },
+        { name: '현금(유가증권 포함), 고가품운송 추가특별약관', kind: 'optional', when: b => b.industry === 'SECURITY', why: () => '현금·고가품 수송 업무를 할 때' },
         { name: '창고업자 특별약관(Ⅰ)', kind: 'recommended', when: b => b.industry === 'WAREHOUSE', why: () => '맡아 보관하는 물건의 화재·폭발·파손·도난 손해 배상' },
-        { name: '구내치료비 추가특별약관', kind: 'recommended', when: b => !['MFG', 'WAREHOUSE', 'OFFICE', 'TRANSPORT'].includes(b.industry), why: () => '손님이 매장에서 다쳤을 때 법률상 책임을 따지기 전에 치료비로 원만히 해결' },
-        { name: '임차자 특별약관', kind: 'recommended', when: tenant, why: () => '빌린 매장 자체에 생긴 사고로 건물주에게 지는 배상' },
-        { name: '종업원(근로자) 신체장해 보장 추가특별약관', kind: 'recommended', when: staff, why: b => `직원 ${b.employees}명 — 산재보험 보상을 넘는 손해 배상` },
+        { name: '구내치료비 추가특별약관', kind: 'recommended', when: b => facil(b) && !['MFG', 'WAREHOUSE', 'OFFICE', 'TRANSPORT'].includes(b.industry), why: () => '손님이 매장에서 다쳤을 때 법률상 책임을 따지기 전에 치료비로 원만히 해결' },
+        { name: '임차자 특별약관', kind: 'recommended', when: b => tenant(b) && !['CONSTRUCTION', 'SECURITY'].includes(b.industry), why: () => '빌린 매장 자체에 생긴 사고로 건물주에게 지는 배상' },
+        { name: '종업원(근로자) 신체장해 보장 추가특별약관', kind: 'recommended', when: b => staff(b) && facil(b), why: b => `직원 ${b.employees}명 — 산재보험 보상을 넘는 손해 배상` },
         { name: '물적손해 확장 추가특별약관', kind: 'optional', when: b => ['BEAUTY', 'LODGING', 'RURAL_STAY', 'BATH', 'SPORTS', 'FOOD', 'CAFE', 'FUNERAL'].includes(b.industry), why: () => '손님에게 맡아 둔 옷·가방 등 물건의 손해 배상 (보석·현금 등 제외)' },
-        { name: '부동산임대업자 추가특별약관', kind: 'optional', when: b => b.isBuildingOwner === true, why: () => '소유 건물의 화재·폭발·붕괴로 세입자 재물에 입힌 손해 배상' },
+        { name: '부동산임대업자 추가특별약관', kind: 'optional', when: b => b.isBuildingOwner === true && facil(b), why: () => '소유 건물의 화재·폭발·붕괴로 세입자 재물에 입힌 손해 배상' },
         { name: '대위권포기 특별약관', kind: 'optional', when: tenant, why: () => '임대차계약서에 대위권 포기 요구가 있을 때' },
         { name: '보험료분납 특별약관', kind: 'optional', when: () => true, why: () => '보험료를 나눠 낼 때' }
       ],
@@ -592,7 +613,11 @@
       evaluate(b) {
         if (b.industry === 'PARKING' && !b.mechParking) return R('권장', '기계식주차장 의무 대상(20대 이상)이 아니면 주차장 특약으로 주차 중 사고 배상에 대비');
         if (b.industry === 'WAREHOUSE') return R('권장', '맡아 보관하는 물건의 손해 배상 대비 (창고업자 특약)');
-        if (!['FOOD', 'CAFE'].includes(b.industry)) return R('비대상', '음식점·카페·주차장·창고에 우선 권장하는 보험입니다.');
+        if (b.industry === 'CONSTRUCTION') return R('권장', '공사 중 이웃·행인·건물에 입힌 손해 배상 대비 (도급업자 특약)');
+        if (b.industry === 'SCHOOL') return R('권장', '학교시설·교육활동 중 학생 사고 배상과 치료비 대비 (학교경영자 특약)');
+        if (b.industry === 'CAR_REPAIR') return R('권장', '정비 중 맡은 차량 손상·손님 사고 배상 대비 (차량정비업자 특약)');
+        if (b.industry === 'SECURITY') return R('권장', '경비업무 중 사고 배상 대비 (경비업자 특약)');
+        if (!['FOOD', 'CAFE'].includes(b.industry)) return R('비대상', '음식점·카페·주차장·창고·공사·학교·정비·경비업에 우선 권장하는 보험입니다.');
         if (!b.floorType || !has(b.bizArea)) return R('비대상', '영업장 층·면적을 입력하면 판단해요.');
         if (b.floorType === '1' && b.bizArea < 100) return R('권장', `1층 ${fmtArea(b.bizArea)}로 재난배상책임보험 의무 대상(100㎡ 이상)은 아니지만, 손님이 다치거나 물건이 파손되는 사고 배상에 대비`);
         const multi = (b.floorType === 'B' && b.bizArea >= 66) || (b.floorType === '2' && b.bizArea >= 100);
