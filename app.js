@@ -35,7 +35,7 @@
 
   const state = {
     me: null, consults: [], dbMode: 'loading', sb: null, canWrite: true, authReady: false,
-    draft: null, step: 1, trackFilter: { q: '', stage: '', ind: '', product: '' }, cardFilter: { q: '', mode: 'all' }, confirmArchive: null, areaUnit: (() => { try { return localStorage.getItem('hearim_area_unit') || 'm2'; } catch (e) { return 'm2'; } })(),
+    draft: null, step: 2, trackFilter: { q: '', stage: '', ind: '', product: '' }, cardFilter: { q: '', mode: 'all' }, confirmArchive: null, areaUnit: (() => { try { return localStorage.getItem('hearim_area_unit') || 'm2'; } catch (e) { return 'm2'; } })(),
     dash: { period: 'all', counselor: '' }, drawer: null
   };
 
@@ -190,7 +190,7 @@
   const FACILITY_OPTS = ['일반음식점(1층, 100㎡ 이상)', '물류창고', '직영 판매장'];
   function newDraft() {
     return {
-      customer: { label: '', email: '' },
+      customer: { label: '' },
       biz: { bizName: '', industry: '', sportsType: '', ksic: '', employees: null, smeType: '',
         floorType: '', bizArea: null, capacity: null,
         isBuildingOwner: null, buildingArea: null, buildingFloors: null,
@@ -204,10 +204,10 @@
   function consultView() {
     if (!state.draft) state.draft = newDraft();
     const s = state.step;
-    const steps = ['고객 정보', '사업장 정보', '보장분석·보험설계'];
+    const steps = [[2, '사업장 정보'], [3, '보장분석·보험설계']];
     return `<div class="page-head"><h1>새 상담</h1><p>기준일 ${E.BASIS_DATE} · 사회보험(국민연금·건강·고용·산재)은 분석에서 제외</p></div>
-      <ol class="stepper">${steps.map((t, i) => `<li class="${i + 1 === s ? 'on' : i + 1 < s ? 'done' : ''}"><span>${i + 1}</span>${t}</li>`).join('')}</ol>
-      ${s === 1 ? step1() : s === 2 ? step2() : step3()}`;
+      <ol class="stepper">${steps.map(([n, t], i) => `<li class="${n === s ? 'on' : n < s ? 'done' : ''}"><span>${i + 1}</span>${t}</li>`).join('')}</ol>
+      ${s === 3 ? step3() : step2()}`;
   }
   const v = x => x === null || x === undefined ? '' : x;
   const fid = path => 'f_' + path.replace(/\./g, '_');
@@ -244,16 +244,6 @@
   function getPath(o, p) { return p.split('.').reduce((a, k) => a == null ? a : a[k], o); }
   function setPath(o, p, val) { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = val; }
 
-  function step1() {
-    return `<section class="card form">
-      <h2>고객 정보</h2>
-      <p class="muted">개인정보 보호를 위해 고객 이름과 연락처는 받지 않아요. 고객은 상호로 구분돼요.</p>
-      <div class="grid2">${inp('customer.label', '구분용 메모 <span class="opt">(선택)</span>', 'text', 'placeholder="예: 망원시장 입구 2호점 — 실명·연락처는 적지 마세요" maxlength="40" autocomplete="off"')}${inp('customer.email', '이메일 <span class="opt">(선택)</span>', 'email', 'placeholder="name@example.com"')}</div>
-      <p class="err" id="stepErr" role="alert"></p>
-      <div class="actions"><span></span><button class="btn primary" id="next1">다음: 사업장 정보</button></div>
-    </section>`;
-  }
-
   const REQ = ' <b class="req" aria-label="필수">*</b>';
   const USE = t => `<span class="use">판정: ${t}</span>`;
   const needsFloor = b => ['FOOD', 'CAFE'].includes(b.industry);
@@ -281,6 +271,7 @@
 
         <h3 class="grp">업체·업종 ${USE('소상공인 여부, 업종별 의무보험')}</h3>
         <div class="grid2">${inp('biz.bizName', '상호' + REQ, 'text', 'placeholder="가입 트래킹·고객 카드에 표시돼요"', bad('biz.bizName'))}${indSel(bad('biz.industry'))}</div>
+        <div class="grid2">${inp('customer.label', '구분용 메모 <span class="opt">(선택 · 같은 상호가 여럿일 때)</span>', 'text', 'placeholder="예: 망원시장 입구 2호점 — 실명·연락처는 적지 마세요" maxlength="40" autocomplete="off"')}</div>
         ${b.industry === 'SPORTS' ? `<div class="grid2">${sel('biz.sportsType', '체육시설 종류' + REQ, E.SPORTS_TYPES.map(([c, n]) => [c, n]), bad('biz.sportsType'))}</div>` : ''}
         ${b.industry === 'MFG' ? `<div class="grid2">${sel('biz.ksic', '제조 품목 <span class="opt">(선택 · 특약 추천에 사용)</span>', E.KSIC.map(([c, n]) => [c, `${n} (${c})`]))}</div>` : ''}
         <div class="grid2">${inp('biz.employees', '상시근로자 수 (대표 제외)' + (b.smeType === '소상공인' ? '' : REQ), 'number', 'min="0" placeholder="0"', bad('biz.employees'))}${sel('biz.smeType', '소상공인 확인서 <span class="opt">(선택)</span>', [['소상공인', '소상공인 확인서 있음'], ['없음/모름', '없음/모름'], ['중기업 이상', '중기업 이상']])}</div>
@@ -319,7 +310,7 @@
           </div>
         </details>
         <p class="err" id="stepErr" role="alert">${state.showMissing && miss.size ? '필수 항목을 입력하세요: ' + missingRequired(b).map(([, n]) => n).join(', ') : ''}</p>
-        <div class="actions"><button class="btn ghost" id="prev2">이전</button><button class="btn primary" id="next2">보장분석 실행</button></div>
+        <div class="actions"><span></span><button class="btn primary" id="next2">보장분석 실행</button></div>
       </section>
       <aside class="card preview" id="preview">${previewPanel()}</aside>
     </div>`;
@@ -452,12 +443,6 @@
     const od = $('#optDetails'); if (od) od.addEventListener('toggle', () => { state.optOpen = od.open; });
     const memo = $('#memo'); if (memo) memo.addEventListener('input', () => { d.memo = memo.value; });
     const on = (id, fn) => { const el = $('#' + id); if (el) el.addEventListener('click', fn); };
-    on('next1', () => {
-      const c = d.customer;
-      if (c.email && !validEmail(c.email)) return void ($('#stepErr').textContent = '이메일 형식을 확인하세요. 비워 두어도 괜찮아요.');
-      state.step = 2; render(); window.scrollTo(0, 0);
-    });
-    on('prev2', () => { state.step = 1; render(); });
     on('next2', () => {
       if (missingRequired(d.biz).length) { state.showMissing = true; render(); const f = document.querySelector('.field.invalid'); if (f) f.scrollIntoView({ block: 'center' }); return; }
       state.showMissing = false; state.step = 3; render(); window.scrollTo(0, 0);
@@ -485,7 +470,7 @@
       const c = { id: uid(), counselorId: state.me.id, consultedAt: now, customer: d.customer, biz: d.biz, eligibility: E.eligibility(d.biz), results, enrollments, memo: d.memo };
       const btn = $('#saveConsult'); btn.disabled = true; btn.textContent = '저장 중…';
       const ok = await saveConsult(c);
-      if (ok) { toast(`저장했어요. 당사 상품 설계 ${enrollments.length}건이 가입 트래킹에 등록됐어요.`); state.draft = null; state.step = 1; location.hash = '#customers'; render(); }
+      if (ok) { toast(`저장했어요. 당사 상품 설계 ${enrollments.length}건이 가입 트래킹에 등록됐어요.`); state.draft = null; state.step = 2; location.hash = '#customers'; render(); }
       else { btn.disabled = false; btn.textContent = '상담 저장'; }
     });
   }
