@@ -310,6 +310,14 @@
       checklist: ['설문서·사업자등록증·항공기 등록증·조종사 면허 사본 필수'],
       docs: ['재난안전의무보험 21종 통합 가이드북(202607)']
     },
+    {
+      id: 'GENERAL_LIAB', name: '영업배상책임보험', line: '특종 / 영업배상', active: true,
+      main: '매장 시설의 결함·관리 소홀이나 영업 중 사고로 손님 등 타인이 입은 신체·재산 손해를 법률상 배상',
+      limits: ['대인·대물 보상한도 협의 (의무보험 아님)'],
+      riders: [],
+      checklist: ['의무보험이 아닌 임의 가입 상품임을 설명', '재난배상책임보험과 달리 영업주 과실이 있는 사고를 보상함을 설명'],
+      docs: ['상품 서류 미제공 — 영업요율서·약관 확인 필요']
+    },
     { id: 'APT_FIRE', name: '아파트단체화재보험', line: '화재', active: false, note: '소상공인 대상 아님', riders: [], limits: [], checklist: [], docs: [] },
     { id: 'HOME_FIRE', name: '주택화재보험', line: '화재', active: false, note: '소상공인 대상 아님', riders: [], limits: [], checklist: [], docs: [] }
   ];
@@ -359,7 +367,7 @@
         if (['FOOD', 'CAFE'].includes(b.industry)) {
           if (!b.floorType || !has(b.bizArea)) return R('확인필요', '영업장 층과 면적이 있어야 판단할 수 있어요.', ['영업장 층', '영업장 면적']);
           if (b.floorType === '1' && b.bizArea >= 100) return R('의무대상', `1층 음식점, 바닥면적 ${fmtArea(b.bizArea)} ≥ 100㎡`);
-          return R('비대상', b.floorType === '1' ? `1층 바닥면적 ${fmtArea(b.bizArea)}로 100㎡ 미만입니다.` : '1층이 아닌 음식점은 다중이용업소 화재배상책임보험으로 확인해요.');
+          return R('비대상', b.floorType === '1' ? `1층 바닥면적 ${fmtArea(b.bizArea)}로 100㎡ 미만이라 의무 대상이 아니에요 (영업배상책임보험 권장).` : '1층이 아닌 음식점은 다중이용업소 화재배상책임보험으로 확인해요.');
         }
         if (b.industry === 'LODGING') return R('의무대상', '숙박업은 재난취약시설입니다.');
         if (b.industry === 'RURAL_STAY') return R('의무대상', '농어촌민박은 재난취약시설입니다.');
@@ -566,6 +574,17 @@
       evaluate(b) {
         if (isSpecial(b)) return R('비대상', '특수건물 화재보험으로 함께 설계합니다.');
         return R('권장', b.industry === 'MFG' ? '공장 건물·기계·재고 화재 손해와 이웃 피해 배상 대비' : '매장 시설·집기·재고 화재 손해와 이웃 점포 피해 배상 대비');
+      }
+    },
+    {
+      code: 'REC_GENERAL_LIAB', kind: 'recommended', name: '영업배상책임보험', law: '의무 아님', products: ['GENERAL_LIAB'], verified: true,
+      evaluate(b) {
+        if (!['FOOD', 'CAFE'].includes(b.industry)) return R('비대상', '음식점·카페에 우선 권장하는 보험입니다.');
+        if (!b.floorType || !has(b.bizArea)) return R('비대상', '영업장 층·면적을 입력하면 판단해요.');
+        if (b.floorType === '1' && b.bizArea < 100) return R('권장', `1층 ${fmtArea(b.bizArea)}로 재난배상책임보험 의무 대상(100㎡ 이상)은 아니지만, 손님이 다치거나 물건이 파손되는 사고 배상에 대비`);
+        const multi = (b.floorType === 'B' && b.bizArea >= 66) || (b.floorType === '2' && b.bizArea >= 100);
+        if (b.floorType !== '1' && !multi) return R('권장', `${b.floorType === 'B' ? '지하' : '2층 이상'} ${fmtArea(b.bizArea)}로 화재배상 의무 대상은 아니지만, 영업 중 사고 배상에 대비`);
+        return R('비대상', '의무 배상보험으로 화재·재난 사고가 보장돼요 (일반 사고 보장이 필요하면 별도 상담).');
       }
     },
     {
