@@ -311,12 +311,23 @@
       docs: ['재난안전의무보험 21종 통합 가이드북(202607)']
     },
     {
-      id: 'GENERAL_LIAB', name: '영업배상책임보험', line: '특종 / 영업배상', active: true,
-      main: '매장 시설의 결함·관리 소홀이나 영업 중 사고로 손님 등 타인이 입은 신체·재산 손해를 법률상 배상',
-      limits: ['대인·대물 보상한도 협의 (의무보험 아님)'],
-      riders: [],
-      checklist: ['의무보험이 아닌 임의 가입 상품임을 설명', '재난배상책임보험과 달리 영업주 과실이 있는 사고를 보상함을 설명'],
-      docs: ['상품 서류 미제공 — 영업요율서·약관 확인 필요']
+      id: 'GENERAL_LIAB', name: '영업배상책임보험', line: '특종 / 일반배상 / 영업배상', active: true,
+      main: '매장·시설의 결함이나 관리 소홀, 영업 중 사고로 손님 등 타인이 입은 신체·재산 손해의 법률상 배상금과 소송·변호사 비용 (시설소유(관리)자 특별약관 기준)',
+      limits: ['보상한도액·자기부담금은 계약 시 약정 (의무보험 아님)', '보험기간 1년 원칙 (1년 미만 단기, 3년 이하 장기 가능)'],
+      riders: [
+        { name: '시설소유(관리)자 특별약관', kind: 'required', when: b => b.industry !== 'PARKING', why: () => '매장·시설과 그 업무로 생긴 사고를 보상하는 기본 특약' },
+        { name: '주차장 특별약관', kind: 'required', when: b => b.industry === 'PARKING', why: () => '주차시설과 주차업무 중 사고 보상 (20대 미만 기계식주차장 포함)' },
+        { name: '창고업자 특별약관(Ⅰ)', kind: 'recommended', when: b => b.industry === 'WAREHOUSE', why: () => '맡아 보관하는 물건의 화재·폭발·파손·도난 손해 배상' },
+        { name: '구내치료비 추가특별약관', kind: 'recommended', when: b => !['MFG', 'WAREHOUSE', 'OFFICE', 'TRANSPORT'].includes(b.industry), why: () => '손님이 매장에서 다쳤을 때 법률상 책임을 따지기 전에 치료비로 원만히 해결' },
+        { name: '임차자 특별약관', kind: 'recommended', when: tenant, why: () => '빌린 매장 자체에 생긴 사고로 건물주에게 지는 배상' },
+        { name: '종업원(근로자) 신체장해 보장 추가특별약관', kind: 'recommended', when: staff, why: b => `직원 ${b.employees}명 — 산재보험 보상을 넘는 손해 배상` },
+        { name: '물적손해 확장 추가특별약관', kind: 'optional', when: b => ['BEAUTY', 'LODGING', 'RURAL_STAY', 'BATH', 'SPORTS', 'FOOD', 'CAFE', 'FUNERAL'].includes(b.industry), why: () => '손님에게 맡아 둔 옷·가방 등 물건의 손해 배상 (보석·현금 등 제외)' },
+        { name: '부동산임대업자 추가특별약관', kind: 'optional', when: b => b.isBuildingOwner === true, why: () => '소유 건물의 화재·폭발·붕괴로 세입자 재물에 입힌 손해 배상' },
+        { name: '대위권포기 특별약관', kind: 'optional', when: tenant, why: () => '임대차계약서에 대위권 포기 요구가 있을 때' },
+        { name: '보험료분납 특별약관', kind: 'optional', when: () => true, why: () => '보험료를 나눠 낼 때' }
+      ],
+      checklist: ['의무보험(재난·다중이용업소 등)에서 보상하는 손해는 제외되므로 의무보험을 먼저 확인', '매장 안에서 먹은 음식물 사고는 보상하지 않으므로 생산물배상책임보험(Ⅰ)을 함께 안내', '미용사·의사 등 전문직업인의 직업상 과실, 지진·홍수 등 천재지변은 보상하지 않음', '종업원(근로자) 신체장해 보장 추가특별약관 설명 및 중복가입 시 비례보상 안내'],
+      docs: ['2.영업배상책임보험_사업방법서별지(20270101)', '3.영업배상책임보험_약관(20270101)']
     },
     { id: 'APT_FIRE', name: '아파트단체화재보험', line: '화재', active: false, note: '소상공인 대상 아님', riders: [], limits: [], checklist: [], docs: [] },
     { id: 'HOME_FIRE', name: '주택화재보험', line: '화재', active: false, note: '소상공인 대상 아님', riders: [], limits: [], checklist: [], docs: [] }
@@ -579,7 +590,9 @@
     {
       code: 'REC_GENERAL_LIAB', kind: 'recommended', name: '영업배상책임보험', law: '의무 아님', products: ['GENERAL_LIAB'], verified: true,
       evaluate(b) {
-        if (!['FOOD', 'CAFE'].includes(b.industry)) return R('비대상', '음식점·카페에 우선 권장하는 보험입니다.');
+        if (b.industry === 'PARKING' && !b.mechParking) return R('권장', '기계식주차장 의무 대상(20대 이상)이 아니면 주차장 특약으로 주차 중 사고 배상에 대비');
+        if (b.industry === 'WAREHOUSE') return R('권장', '맡아 보관하는 물건의 손해 배상 대비 (창고업자 특약)');
+        if (!['FOOD', 'CAFE'].includes(b.industry)) return R('비대상', '음식점·카페·주차장·창고에 우선 권장하는 보험입니다.');
         if (!b.floorType || !has(b.bizArea)) return R('비대상', '영업장 층·면적을 입력하면 판단해요.');
         if (b.floorType === '1' && b.bizArea < 100) return R('권장', `1층 ${fmtArea(b.bizArea)}로 재난배상책임보험 의무 대상(100㎡ 이상)은 아니지만, 손님이 다치거나 물건이 파손되는 사고 배상에 대비`);
         const multi = (b.floorType === 'B' && b.bizArea >= 66) || (b.floorType === '2' && b.bizArea >= 100);
