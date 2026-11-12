@@ -64,7 +64,7 @@ const rows = cases.map(k => {
     if (cur === '계약성립') { e.policyNo = `NH26-${pol++}`; e.premium = [98000, 180000, 320000, 450000][j % 4]; e.startDate = (doneDate || k.at); e.expiry = addYear(e.startDate); }
     return e;
   });
-  return { id: k.id, at, data: { customer: { name: k.cust[0], phone: k.cust[1], email: '' }, biz: b, eligibility: E.eligibility(b), results, enrollments, memo: '샘플 데이터', sample: true } };
+  return { id: k.id, at, data: { customer: { label: '', email: '' }, biz: b, eligibility: E.eligibility(b), results, enrollments, memo: '샘플 데이터', sample: true } };
 });
 
 const q = s => "'" + s.replace(/'/g, "''") + "'";

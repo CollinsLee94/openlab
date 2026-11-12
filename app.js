@@ -190,7 +190,7 @@
   const FACILITY_OPTS = ['일반음식점(1층, 100㎡ 이상)', '물류창고', '직영 판매장'];
   function newDraft() {
     return {
-      customer: { name: '', phone: '', email: '' },
+      customer: { label: '', email: '' },
       biz: { bizName: '', industry: '', sportsType: '', ksic: '', employees: null, smeType: '',
         floorType: '', bizArea: null, capacity: null,
         isBuildingOwner: null, buildingArea: null, buildingFloors: null,
@@ -247,7 +247,8 @@
   function step1() {
     return `<section class="card form">
       <h2>고객 정보</h2>
-      <div class="grid3">${inp('customer.name', '고객명 (대표자)')}${inp('customer.phone', '연락처', 'tel', 'placeholder="숫자만 입력 (예: 01012345678)" inputmode="numeric" maxlength="13" autocomplete="off"')}${inp('customer.email', '이메일 <span class="opt">(선택)</span>', 'email', 'placeholder="name@example.com"')}</div>
+      <p class="muted">개인정보 보호를 위해 고객 이름과 연락처는 받지 않아요. 고객은 상호로 구분돼요.</p>
+      <div class="grid2">${inp('customer.label', '구분용 메모 <span class="opt">(선택)</span>', 'text', 'placeholder="예: 망원시장 입구 2호점 — 실명·연락처는 적지 마세요" maxlength="40" autocomplete="off"')}${inp('customer.email', '이메일 <span class="opt">(선택)</span>', 'email', 'placeholder="name@example.com"')}</div>
       <p class="err" id="stepErr" role="alert"></p>
       <div class="actions"><span></span><button class="btn primary" id="next1">다음: 사업장 정보</button></div>
     </section>`;
@@ -338,7 +339,7 @@
     const none = rs.filter(r => r.kind === 'mandatory' && r.result === '비대상');
     const rec = rs.filter(r => r.kind === 'recommended' && r.result === '권장');
     return `<section class="card summary-line">
-        <div><b>${esc(b.bizName || '(상호 미입력)')}</b> · ${esc(E.IND[b.industry]?.name || '업종 미선택')} · ${esc(d.customer.name)}</div>
+        <div><b>${esc(b.bizName || '(상호 미입력)')}</b> · ${esc(E.IND[b.industry]?.name || '업종 미선택')}${d.customer.label ? ' · ' + esc(d.customer.label) : ''}</div>
         <div>소상공인 ${badge(el.status)} <span class="muted">${esc(el.reasons.join(' · '))}</span></div>
       </section>
       <h2 class="sec">① 법정 의무보험 <span class="count">${mand.length}</span></h2>
@@ -453,8 +454,6 @@
     const on = (id, fn) => { const el = $('#' + id); if (el) el.addEventListener('click', fn); };
     on('next1', () => {
       const c = d.customer;
-      if (!c.name || !c.phone) return void ($('#stepErr').textContent = '고객명과 연락처를 입력하세요.');
-      if (!validPhone(c.phone)) return void ($('#stepErr').textContent = '연락처 형식을 확인하세요. 예: 010-1234-5678');
       if (c.email && !validEmail(c.email)) return void ($('#stepErr').textContent = '이메일 형식을 확인하세요. 비워 두어도 괜찮아요.');
       state.step = 2; render(); window.scrollTo(0, 0);
     });
@@ -524,13 +523,13 @@
     let cs = activeConsults().map(c => ({ c, nx: nextExpiry(c), gaps: (c.results || []).filter(r => r.kind === 'mandatory' && r.status === '미가입').length }));
     const all = cs.length;
     const soon = cs.filter(x => x.nx && x.nx.d <= 60).length;
-    if (f.q) { const q = f.q.toLowerCase(); cs = cs.filter(({ c }) => [c.customer.name, c.biz.bizName, c.customer.phone].some(t => (t || '').toLowerCase().includes(q))); }
+    if (f.q) { const q = f.q.toLowerCase(); cs = cs.filter(({ c }) => [c.customer.label, c.biz.bizName, c.biz.bizNo].some(t => (t || '').toLowerCase().includes(q))); }
     if (f.mode === 'soon') cs = cs.filter(x => x.nx && x.nx.d <= 60);
     if (f.mode === 'gap') cs = cs.filter(x => x.gaps > 0);
     cs.sort((a, b) => (a.nx ? a.nx.d : 1e9) - (b.nx ? b.nx.d : 1e9) || new Date(b.c.consultedAt) - new Date(a.c.consultedAt));
     return `<div class="page-head"><h1>고객 카드</h1><p>${state.me.role === 'manager' ? '전체' : '내'} 고객 ${all}명 · 만기 60일 이내 <b class="crit-t">${soon}명</b> · 만기가 가까운 고객이 위에 표시돼요</p></div>
       <div class="filters card">
-        <div class="field"><label for="cq">검색</label><input id="cq" value="${esc(f.q)}" placeholder="고객명·상호·연락처"></div>
+        <div class="field"><label for="cq">검색</label><input id="cq" value="${esc(f.q)}" placeholder="상호·메모·사업자번호"></div>
         <div class="seg-group" role="group" aria-label="보기">${[['all', '전체'], ['soon', '만기 60일 이내'], ['gap', '미가입 의무보험 있음']].map(([k, t]) => `<button class="seg ${f.mode === k ? 'on' : ''}" data-cmode="${k}">${t}</button>`).join('')}</div>
       </div>
       ${cs.length ? `<div class="cards">${cs.map(customerCard).join('')}</div>` : `<div class="card empty">${all ? '조건에 맞는 고객이 없어요.' : '아직 등록된 고객이 없어요. 새 상담을 저장하면 여기에 카드로 모여요.'}</div>`}`;
@@ -541,7 +540,7 @@
     const conf = state.confirmArchive === c.id;
     return `<article class="ccard ${nx ? 'b-' + ddayCls(nx.d) : ''}">
       <header>
-        <div><h3>${esc(c.biz.bizName)}</h3><p>${esc(c.customer.name)} · ${esc(maskPhone(c.customer.phone))}</p></div>
+        <div><h3>${esc(c.biz.bizName)}</h3>${c.customer.label ? `<p>${esc(c.customer.label)}</p>` : ''}</div>
         ${nx ? `<span class="dday ${ddayCls(nx.d)}">${ddayTxt(nx.d)}</span>` : '<span class="dday none">만기 정보 없음</span>'}
       </header>
       <div class="cmeta"><span class="pill mute">${esc(E.IND[c.biz.industry]?.name || c.biz.industry || '-')}</span>${gaps ? `<span class="pill crit">미가입 의무보험 ${gaps}</span>` : ''}${open ? `<span class="pill info">진행 중 추천 ${open}</span>` : ''}${state.me.role === 'manager' ? `<span class="pill outline">${esc(ACC[c.counselorId]?.name || '')}</span>` : ''}</div>
@@ -582,7 +581,7 @@
       if (f.stage && e.stage !== f.stage) return false;
       if (f.ind && c.biz.industry !== f.ind) return false;
       if (f.product && e.productId !== f.product) return false;
-      if (f.q) { const q = f.q.toLowerCase(); if (![c.customer.name, c.biz.bizName, c.biz.bizNo].some(x => (x || '').toLowerCase().includes(q))) return false; }
+      if (f.q) { const q = f.q.toLowerCase(); if (![c.customer.label, c.biz.bizName, c.biz.bizNo].some(x => (x || '').toLowerCase().includes(q))) return false; }
       return true;
     });
     const counts = E.STAGES.map(s => [s, all.filter(r => r.e.stage === s).length]);
@@ -591,23 +590,23 @@
     return `<div class="page-head"><h1>가입 트래킹</h1><p>${state.me.role === 'manager' ? '전체 상담사' : '내'} 추천 ${all.length}건 · 후속 연락 필요 <b class="crit-t">${follow}건</b></p></div>
       <div class="stage-strip">${counts.map(([s, n]) => `<button class="stage-chip ${f.stage === s ? 'on' : ''}" data-stage="${s}">${stageBadge(s)}<b>${n}</b></button>`).join('')}</div>
       <div class="filters card">
-        <div class="field"><label for="tq">검색</label><input id="tq" value="${esc(f.q)}" placeholder="고객명·상호·사업자번호"></div>
+        <div class="field"><label for="tq">검색</label><input id="tq" value="${esc(f.q)}" placeholder="상호·메모·사업자번호"></div>
         <div class="field"><label for="tk">업종</label><select id="tk"><option value="">전체</option>${E.INDUSTRIES.map(i => `<option value="${i.code}" ${f.ind === i.code ? 'selected' : ''}>${esc(i.name)}</option>`).join('')}</select></div>
         <div class="field"><label for="tp">상품</label><select id="tp"><option value="">전체</option>${E.PRODUCTS.filter(p => p.active).map(p => `<option value="${p.id}" ${f.product === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
         <button class="btn ghost sm" id="treset">필터 초기화</button>
       </div>
       ${rows.length ? `<div class="table-wrap card"><table class="tbl">
-        <thead><tr><th>상담일</th><th>고객 / 상호</th><th>업종</th><th>추천 상품</th><th>구분</th><th>단계</th>${state.me.role === 'manager' ? '<th>상담사</th>' : ''}<th>다음 액션</th></tr></thead>
+        <thead><tr><th>상담일</th><th>상호</th><th>업종</th><th>추천 상품</th><th>구분</th><th>단계</th>${state.me.role === 'manager' ? '<th>상담사</th>' : ''}<th>다음 액션</th></tr></thead>
         <tbody>${rows.map(({ c, e }) => { const na = nextAction(e, c); return `<tr tabindex="0" data-open="${c.id}|${e.id}">
           <td class="num">${fmtDate(c.consultedAt)}</td>
-          <td><b>${esc(c.customer.name)}</b><br><small>${esc(c.biz.bizName)} · ${esc(maskPhone(c.customer.phone))}</small></td>
+          <td><b>${esc(c.biz.bizName)}</b>${c.customer.label ? `<br><small>${esc(c.customer.label)}</small>` : ''}</td>
           <td><small>${esc(E.IND[c.biz.industry]?.name || '-')}</small></td><td>${esc(E.PRODUCT[e.productId]?.name || e.productId)}${e.design ? `<br><small>특약 ${e.design.riders.length}개</small>` : ''}</td>
           <td>${e.kind === 'mandatory' ? '<span class="pill crit">의무</span>' : '<span class="pill info">권장</span>'}</td>
           <td>${stageBadge(e.stage)}</td>${state.me.role === 'manager' ? `<td>${esc(ACC[c.counselorId]?.name || '')}</td>` : ''}
           <td>${na === 'FOLLOW' ? '<span class="pill crit">후속 연락 필요</span>' : esc(na)}</td></tr>`; }).join('')}</tbody></table></div>`
         : `<div class="card empty">${all.length ? '조건에 맞는 추천 건이 없어요.' : '아직 추천 건이 없어요. 새 상담에서 미가입 의무보험을 찾으면 여기에 쌓여요.'}</div>`}
       ${archived.length ? `<details class="card archived" ${state.showArchived ? 'open' : ''} id="archDetails"><summary>관리 종료(삭제)한 고객 ${archived.length}명</summary>
-        <ul>${archived.map(c => `<li><span><b>${esc(c.biz.bizName)}</b> · ${esc(c.customer.name)} <small>삭제 ${fmtDate(c.archivedAt)}</small></span><button class="btn ghost sm" data-restore="${c.id}">복원</button></li>`).join('')}</ul>
+        <ul>${archived.map(c => `<li><span><b>${esc(c.biz.bizName)}</b> <small>삭제 ${fmtDate(c.archivedAt)}</small></span><button class="btn ghost sm" data-restore="${c.id}">복원</button></li>`).join('')}</ul>
         <p class="foot">삭제한 고객은 목록·고객 카드에서 빠지고, 실적 대시보드 집계에는 그대로 남아요.</p></details>` : ''}`;
   }
   function bindTracking() {
@@ -632,7 +631,7 @@
     const mine = state.me.role === 'manager' || c.counselorId === state.me.id;
     const start = e.startDate || todayStr();
     return `<div class="scrim" id="scrim"></div><aside class="drawer" role="dialog" aria-label="추천 건 상세">
-      <header><div><small>${fmtDate(c.consultedAt)} · ${esc(ACC[c.counselorId]?.name || '')}</small><h2>${esc(c.biz.bizName)}</h2><p>${esc(c.customer.name)} · ${esc(c.customer.phone)}</p></div><button class="btn ghost sm" id="dclose" aria-label="닫기">닫기</button></header>
+      <header><div><small>${fmtDate(c.consultedAt)} · ${esc(ACC[c.counselorId]?.name || '')}</small><h2>${esc(c.biz.bizName)}</h2>${c.customer.label ? `<p>${esc(c.customer.label)}</p>` : ''}</div><button class="btn ghost sm" id="dclose" aria-label="닫기">닫기</button></header>
       <section><h3>${esc(p.name || e.productId)}</h3><p class="muted">${esc(E.RULE[e.code]?.name || '')} · ${e.kind === 'mandatory' ? '의무보험 미가입' : '권장'} · 현재 ${stageBadge(e.stage)}</p></section>
       ${e.design ? `<section class="design dz"><span class="d-lbl">메인 보장</span><p>${esc(e.design.main)}</p>${(e.design.limits || []).length ? `<ul class="limits">${e.design.limits.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
         <span class="d-lbl">포함 특약 ${e.design.riders.length}개</span>${e.design.riders.length ? `<ul class="rlist">${e.design.riders.map(r => `<li><span class="rk ${r.kind}">${E.RIDER_KIND[r.kind]}</span>${esc(r.name)}</li>`).join('')}</ul>` : '<p class="muted small">특약 없음</p>'}</section>` : ''}
